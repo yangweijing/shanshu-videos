@@ -252,8 +252,14 @@ const LOCK = {
   busy: false,
 };
 
+/* 内容版本号：每次更换 data/ 里的 .enc 后，把下面这行的值改一下（比如 v2、v3），
+   所有访客就会立刻拉到新文件，不会被浏览器缓存 / CDN 缓存 / Service Worker 挡住。 */
+const DATA_VER = 'v2';
+
 async function fetchBytes(url) {
-  const r = await fetch(url, { cache: 'force-cache' });
+  const sep = url.indexOf('?') === -1 ? '?' : '&';
+  // 带版本号查询串 => 新 URL => 缓存里必然没有，直接取新文件
+  const r = await fetch(url + sep + 'v=' + DATA_VER, { cache: 'no-cache' });
   if (!r.ok) throw new Error('HTTP ' + r.status + ' ' + url);
   return u8(await r.arrayBuffer());
 }
@@ -331,7 +337,8 @@ async function afterUnlock() {
       else showHome();
     } catch (e) {
       // AES-GCM 校验失败时浏览器给出的 message 为空，补一句人话
-      statusEl.textContent = '全文解密失败：' + (e.message || '密钥与数据不匹配，请用同一次加密生成的 .enc 文件');
+      statusEl.textContent = '全文解密失败：' + (e.message || '密钥与数据不匹配，请用同一次加密生成的 .enc 文件')
+        + '（若是刚换过 .enc，请在网址后加 ?reset=1 打开一次，强制清空本机缓存）';
     }
   }, 30);
 }
@@ -1291,13 +1298,42 @@ function setupInstallTip() {
 function registerSW() {
   if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('sw.js').catch(() => { /* 忽略 */ });
+      navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' })
+        .then((reg) => { if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' }); })
+        .catch(() => { /* 忽略 */ });
     });
   }
 }
 
+/* ---------------- ?reset=1 强制清缓存 ----------------
+   换了 .enc 却还是显示旧内容时，在网址后面加 ?reset=1 打开一次即可：
+   清空 Cache Storage、注销 Service Worker、清掉记住的密钥，然后自动重载。 */
+function handleResetFlag() {
+  var u;
+  try { u = new URL(location.href); } catch (e) { return; }
+  if (u.searchParams.get('reset') !== '1') return;
+  (async function () {
+    try {
+      if ('caches' in window) {
+        var keys = await caches.keys();
+        await Promise.all(keys.map(function (k) { return caches.delete(k); }));
+      }
+    } catch (e) { /* 忽略 */ }
+    try {
+      if ('serviceWorker' in navigator) {
+        var regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map(function (r) { return r.unregister(); }));
+      }
+    } catch (e) { /* 忽略 */ }
+    try { await DB.delKey('main'); await DB.delKey('mainExp'); } catch (e) { /* 忽略 */ }
+    u.searchParams.delete('reset');
+    location.replace(u.toString());
+  })();
+}
+
 /* ---------------- 启动 ---------------- */
 function init() {
+  handleResetFlag();
   initTheme();
   initFont();
   bind();
