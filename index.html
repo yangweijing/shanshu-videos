@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=5">
+<title>抖音视频笔记 · 检索</title>
+<meta name="description" content="抖音视频笔记全文检索工具，支持精准搜索与模糊搜索，可补充自定义内容，日间夜间阅读模式。">
+<meta name="robots" content="noindex, nofollow, noarchive, noimageindex">
+<meta name="googlebot" content="noindex, nofollow">
+<meta name="theme-color" content="#f7f5f0" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#15171c" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="视频笔记">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+
+<header class="topbar">
+  <h1 class="brand" id="brand">视频笔记</h1>
+  <div class="topActions">
+    <button class="iconBtn" id="btnLock" type="button" aria-label="立即锁定" hidden>🔒</button>
+    <button class="iconBtn" id="btnTheme" type="button" aria-label="切换日间或夜间阅读模式">
+      <span class="ico" id="themeIcon" aria-hidden="true">☾</span>
+    </button>
+    <button class="iconBtn" id="btnAdd" type="button" aria-label="添加补充内容">＋</button>
+  </div>
+</header>
+
+<main id="main">
+
+  <!-- 添加到主屏幕引导（仅未安装时显示一次） -->
+  <div class="installTip" id="installTip" hidden>
+    <div class="tipText">
+      <strong>把它装到手机桌面</strong>
+      <span id="installHow"></span>
+    </div>
+    <button class="miniBtn" id="btnHideTip" type="button">知道了</button>
+  </div>
+
+  <!-- ============ 搜索视图 ============ -->
+  <section class="view" id="viewSearch" aria-label="搜索">
+    <div class="searchWrap">
+      <div class="searchBar">
+        <span class="searchIco" aria-hidden="true">⌕</span>
+        <input id="q" type="search" inputmode="search" enterkeyhint="search"
+               placeholder="搜索内容、标题、关键词…" autocomplete="off" aria-label="搜索关键词">
+        <button class="clearBtn" id="btnClear" type="button" aria-label="清空" hidden>×</button>
+      </div>
+      <div class="modeSwitch" role="tablist" aria-label="搜索模式">
+        <button class="modeBtn isOn" data-mode="exact" role="tab" aria-selected="true" type="button">精准</button>
+        <button class="modeBtn" data-mode="fuzzy" role="tab" aria-selected="false" type="button">模糊</button>
+      </div>
+      <p class="modeHint" id="modeHint">整句完整匹配，结果最准</p>
+    </div>
+
+    <div class="panelBody">
+      <p class="statusLine" id="status">正在加载笔记…</p>
+
+      <!-- 搜索历史 -->
+      <div id="histBox" class="histBox">
+        <div class="histHead">
+          <span>最近搜索</span>
+          <button class="miniBtn" id="btnClearHist" type="button">清空</button>
+        </div>
+        <div class="chips" id="histList"></div>
+      </div>
+
+      <div id="results" class="results" aria-live="polite"></div>
+
+      <!-- 空状态：热门入口 -->
+      <div id="homeBox" class="homeBox">
+        <div class="statCard">
+          <div class="statNum" id="statItems">—</div>
+          <div class="statLabel">篇笔记</div>
+          <div class="statSub"><span id="statChars">—</span> 字 · <span id="statExtra">0</span> 条补充</div>
+        </div>
+        <h2 class="secTitle">试试这些</h2>
+        <div class="chips" id="hotList"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 目录视图 ============ -->
+  <section class="view" id="viewToc" aria-label="目录" hidden>
+    <div class="filterBar">
+      <input id="tocFilter" type="search" placeholder="筛选标题…" autocomplete="off" aria-label="筛选目录标题">
+    </div>
+    <div class="panelBody" id="tocList"></div>
+  </section>
+
+  <!-- ============ 补充视图 ============ -->
+  <section class="view" id="viewExtra" aria-label="我的补充" hidden>
+    <div class="panelBody">
+      <button class="primaryBtn" id="btnAdd2" type="button">＋ 新增补充内容</button>
+      <p class="tip">补充的内容会保存在这台设备的浏览器里，并一并纳入搜索。清理浏览器数据会丢失，建议定期导出备份。</p>
+      <div class="extraTools">
+        <button class="ghostBtn" id="btnExport" type="button">导出备份</button>
+        <button class="ghostBtn" id="btnImport" type="button">导入备份</button>
+      </div>
+      <div id="extraList" class="extraList"></div>
+    </div>
+  </section>
+</main>
+
+<!-- ============ 阅读视图 ============ -->
+<section class="reader" id="reader" hidden aria-label="阅读">
+  <header class="readerBar">
+    <button class="iconBtn" id="btnBack" type="button" aria-label="返回">‹</button>
+    <div class="readerTitle" id="readerTitle"></div>
+    <button class="iconBtn" id="btnCopy" type="button" aria-label="复制全文">⧉</button>
+  </header>
+  <div class="readerBody" id="readerBody" tabindex="-1"></div>
+  <footer class="readerFoot">
+    <button class="ghostBtn" id="btnPrev" type="button">上一篇</button>
+    <span class="fontCtl">
+      <button class="miniBtn" id="btnFontDown" type="button" aria-label="缩小字号">A－</button>
+      <button class="miniBtn" id="btnFontUp" type="button" aria-label="放大字号">A＋</button>
+    </span>
+    <button class="ghostBtn" id="btnNext" type="button">下一篇</button>
+  </footer>
+</section>
+
+<!-- ============ 新增内容弹层 ============ -->
+<div class="sheetMask" id="sheetMask" hidden></div>
+<div class="sheet" id="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+  <div class="sheetBar"><span id="sheetTitle">新增补充内容</span>
+    <button class="iconBtn" id="btnCloseSheet" type="button" aria-label="关闭">×</button>
+  </div>
+  <div class="sheetBody">
+    <label class="fldLabel" for="fTitle">标题（可留空）</label>
+    <input id="fTitle" class="fld" type="text" placeholder="例如：2026-09 新视频要点">
+
+    <label class="fldLabel" for="fBody">正文</label>
+    <textarea id="fBody" class="fld area" rows="7" placeholder="把文字粘贴到这里…"></textarea>
+
+    <div class="fileRow">
+      <label class="ghostBtn fileBtn" for="fFile">从文件导入</label>
+      <input id="fFile" type="file" accept=".txt,.md,.markdown,.docx,.json,text/plain" hidden>
+      <span class="fileName" id="fileName">支持 txt / md / docx</span>
+    </div>
+
+    <div class="sheetFoot">
+      <button class="ghostBtn" id="btnCancelSheet" type="button">取消</button>
+      <button class="primaryBtn" id="btnSave" type="button">保存并加入搜索</button>
+    </div>
+  </div>
+</div>
+
+<nav class="tabbar" aria-label="主导航">
+  <button class="tab isOn" data-view="Search" type="button"><span class="tabIco">⌕</span>搜索</button>
+  <button class="tab" data-view="Toc" type="button"><span class="tabIco">☰</span>目录</button>
+  <button class="tab" data-view="Extra" type="button"><span class="tabIco">✎</span>补充</button>
+</nav>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<!-- ============ 解锁层：内容以密文存放，口令只在本机参与解密 ============ -->
+<div class="lockMask" id="lockMask" hidden>
+  <form class="lockCard" id="lockForm" novalidate autocomplete="off">
+    <div class="lockIco" aria-hidden="true">🔒</div>
+    <h2 class="lockTitle">视频笔记</h2>
+    <p class="lockSub">内容已加密 · 请输入访问口令</p>
+    <input id="lockPwd" class="lockInput" type="password" placeholder="访问口令"
+           autocomplete="current-password" autocapitalize="off" spellcheck="false"
+           enterkeyhint="go" aria-label="访问口令">
+    <label class="lockRemember" for="lockRemember">
+      <input type="checkbox" id="lockRemember"> 在这台设备上记住 <span id="lockDays">30</span> 天
+    </label>
+    <button class="primaryBtn lockBtn" id="lockBtn" type="submit">解锁</button>
+    <p class="lockErr" id="lockErr" role="alert"></p>
+    <p class="lockTip">口令只在你这台设备上参与解密，不会发送到任何服务器</p>
+  </form>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
