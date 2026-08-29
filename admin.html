@@ -194,11 +194,13 @@
       { name: 'PBKDF2', salt: salt, iterations: CFG.iterations, hash: CFG.hash },
       km, { name: 'AES-GCM', length: CFG.keyLen }, false, ['encrypt', 'decrypt']);
   }
-  async function decryptBytes(bytes, pwd) {
+  async function decryptBytes(bytes, pwd, forceSalt) {
     for (var i = 0; i < 4; i += 1) {
       if (bytes[i] !== MAGIC[i]) throw new Error('不是有效的加密文件（文件头不对）');
     }
-    var salt = bytes.slice(4, 20), iv = bytes.slice(20, 32), body = bytes.slice(32);
+    // forceSalt：模拟 app.js 的行为——站点端只用 index.enc 的 salt 派生密钥，
+    // 再用同一把密钥去解 full.enc。自检时必须走这条路径，否则测不出 salt 不一致的 bug。
+    var salt = forceSalt || bytes.slice(4, 20), iv = bytes.slice(20, 32), body = bytes.slice(32);
     var ct = body.slice(0, body.length - 16), tag = body.slice(body.length - 16);
     var joined = new Uint8Array(ct.length + tag.length);
     joined.set(ct, 0); joined.set(tag, ct.length);
@@ -206,8 +208,8 @@
     var plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: iv, tagLength: 128 }, key, joined);
     return new TextDecoder().decode(plain);
   }
-  async function encryptString(text, pwd) {
-    var salt = crypto.getRandomValues(new Uint8Array(16));
+  async function encryptString(text, pwd, useSalt) {
+    var salt = useSalt || crypto.getRandomValues(new Uint8Array(16));
     var iv = crypto.getRandomValues(new Uint8Array(12));
     var key = await deriveKey(pwd, salt);
     var buf = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv, tagLength: 128 },
@@ -566,12 +568,22 @@
 
   async function makeBlobs() {
     serialize();
-    var ib = await encryptString(ST.indexText, ST.cfg.readPwd);
-    var fb = await encryptString(ST.fullText, ST.cfg.readPwd);
-    // 回读自检
+    // 关键：index.enc 与 full.enc 必须使用同一个 salt。
+    // 站点 app.js 只从 index.enc 取 salt 派生密钥，再用这把密钥解 full.enc；
+    // 若两个文件各自用独立随机 salt，full.enc 必然解密失败（"密钥与数据不匹配"）。
+    var sharedSalt = crypto.getRandomValues(new Uint8Array(16));
+    var ib = await encryptString(ST.indexText, ST.cfg.readPwd, sharedSalt);
+    var fb = await encryptString(ST.fullText, ST.cfg.readPwd, sharedSalt);
+    // 回读自检（严格模式：完全照搬 app.js 的解密方式）
+    var indexSalt = ib.slice(4, 20);
     var a = await decryptBytes(ib, ST.cfg.readPwd);
-    var b = await decryptBytes(fb, ST.cfg.readPwd);
+    var b = await decryptBytes(fb, ST.cfg.readPwd, indexSalt);
     if (a !== ST.indexText || b !== ST.fullText) throw new Error('加密回读校验失败');
+    // 双重校验：确认两个文件的 salt 完全一致
+    var fbSalt = fb.slice(4, 20);
+    for (var i = 0; i < 16; i += 1) {
+      if (indexSalt[i] !== fbSalt[i]) throw new Error('两个文件的 salt 不一致，站点将无法解密全文');
+    }
     return { index: ib, full: fb };
   }
 
