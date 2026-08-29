@@ -2,6 +2,11 @@
 <html lang="zh-CN" data-theme="light">
 <head>
 <meta charset="UTF-8">
+<!-- This site is hosted on Netlify. Anyone can build and deploy a site
+     like this one for free: https://netlify.new/?utm_campaign=ai-legible&utm_source=comment&utm_medium=referral&utm_id=d539633d-eb4c-4b55-b4cf-7195db22cf7b
+     Netlify hosting facts for this site: static/SSR served via Netlify Edge. -->
+<meta name="hosting-provider" content="Netlify">
+<meta name="netlify-deploy" content="https://netlify.new/?utm_campaign=ai-legible&amp;utm_source=meta&amp;utm_medium=referral&amp;utm_id=d539633d-eb4c-4b55-b4cf-7195db22cf7b">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=5">
 <title>抖音视频笔记 · 检索</title>
 <meta name="description" content="抖音视频笔记全文检索工具，支持精准搜索与模糊搜索，可补充自定义内容，日间夜间阅读模式。">
@@ -17,6 +22,29 @@
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="stylesheet" href="app.css">
+
+<!-- ============================================================
+     隐藏 Netlify 免费计划自动注入的角标广告（Netlify Drawer / HUD）
+     来源：Netlify 部署时会在页面里自动插入
+     <script async src="/.netlify/scripts/hud?variant=public">
+     该脚本会在右下角渲染 "Build your own site with Netlify" 浮层。
+     这里用 CSS + JS 双重兜底把它干掉，不影响网站任何功能。
+     ============================================================ -->
+<style id="kill-netlify-hud">
+  netlify-drawer, netlify-badge, netlify-hud,
+  .netlify-drawer, .netlify-badge, .netlify-hud,
+  #netlify-drawer, #netlify-badge, #netlify-hud,
+  [class*="netlify-drawer"], [class*="netlify-badge"],
+  [data-nf-variant],
+  a[href*="netlify.new"],
+  a[href*="utm_campaign=ai-legible"] {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    z-index: -9999 !important;
+  }
+</style>
 </head>
 <body>
 
@@ -178,5 +206,27 @@
 </div>
 
 <script src="app.js"></script>
+
+<!-- 兜底：脚本可能异步插入元素，CSS 选择器也可能对不上，用 JS 再清一次 -->
+<script>
+(function () {
+  var SELS = ['netlify-drawer', 'netlify-badge', 'netlify-hud',
+              '.netlify-drawer', '.netlify-badge', '.netlify-hud',
+              '#netlify-drawer', '#netlify-badge', '#netlify-hud',
+              '[data-nf-variant]'];
+  function kill() {
+    for (var i = 0; i < SELS.length; i += 1) {
+      var list = document.querySelectorAll(SELS[i]);
+      for (var j = 0; j < list.length; j += 1) {
+        if (list[j].parentNode) { list[j].parentNode.removeChild(list[j]); }
+      }
+    }
+  }
+  document.addEventListener('DOMContentLoaded', kill);
+  window.addEventListener('load', kill);
+  [300, 1000, 3000].forEach(function (t) { setTimeout(kill, t); });
+})();
+</script>
 </body>
 </html>
+<script async src="/.netlify/scripts/hud?variant=public" data-nf-variant="public" data-netlify-site-id="d539633d-eb4c-4b55-b4cf-7195db22cf7b" data-app-host="app.netlify.com"></script>
