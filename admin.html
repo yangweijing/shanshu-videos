@@ -79,6 +79,21 @@
   .foot button{margin:0;flex:1}
   .sec{font-size:12px;color:var(--sub);margin:10px 0 4px}
 </style>
+
+<style id="kill-netlify-hud">
+  netlify-drawer, netlify-badge, netlify-hud,
+  .netlify-drawer, .netlify-badge, .netlify-hud,
+  #netlify-drawer, #netlify-badge, #netlify-hud,
+  [class*="netlify-drawer"], [class*="netlify-badge"],
+  [data-nf-variant],
+  a[href*="netlify.new"] {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    z-index: -9999 !important;
+  }
+</style>
 </head>
 <body>
 
@@ -748,6 +763,26 @@
     renderEditor(this.value);
     this.setAttribute('data-last', this.value);
   });
+})();
+</script>
+
+<script>
+(function () {
+  var SELS = ['netlify-drawer', 'netlify-badge', 'netlify-hud',
+              '.netlify-drawer', '.netlify-badge', '.netlify-hud',
+              '#netlify-drawer', '#netlify-badge', '#netlify-hud',
+              '[data-nf-variant]'];
+  function kill() {
+    for (var i = 0; i < SELS.length; i += 1) {
+      var list = document.querySelectorAll(SELS[i]);
+      for (var j = 0; j < list.length; j += 1) {
+        if (list[j].parentNode) { list[j].parentNode.removeChild(list[j]); }
+      }
+    }
+  }
+  document.addEventListener('DOMContentLoaded', kill);
+  window.addEventListener('load', kill);
+  [300, 1000, 3000].forEach(function (t) { setTimeout(kill, t); });
 })();
 </script>
 </body>
