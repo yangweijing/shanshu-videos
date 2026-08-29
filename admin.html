@@ -142,7 +142,8 @@
     <p class="hint">把某个词在所有笔记里统一换掉，index 和 full 会一起改。</p>
     <div class="rules" id="rules"></div>
     <button class="ghost" id="btnAddRule">＋ 加一行</button>
-    <button class="ghost" id="btnPreview">预演：看看能替换多少处</button>
+    <button class="ghost" id="btnPreview">🔍 预演：看看能替换多少处（不改内容）</button>
+    <button class="dark" id="btnApplyReplace">✅ 执行替换并保存到内存</button>
   </div>
 
   <!-- 单条编辑 -->
@@ -717,6 +718,17 @@
   $('#btnGenAdmin').addEventListener('click', genAdmin);
   $('#btnAddRule').addEventListener('click', function () { addRule('', ''); });
   $('#btnPreview').addEventListener('click', previewReplace);
+  $('#btnApplyReplace').addEventListener('click', function () {
+    var log = applyRulesToAll();
+    if (!log) return;
+    var h = '<b>替换已执行（内存中已改，还没发布）</b><table>';
+    log.forEach(function (r) { h += '<tr><th>' + r.from + ' → ' + r.to
+      + '</th><td class="ok">替换 ' + r.n + ' 处</td></tr>'; });
+    h += '</table><br>点底部的<b>保存并发布</b>推送到 GitHub。';
+    msg('m-ok', h);
+    // 刷新预览区显示当前状态
+    previewReplace();
+  });
   $('#btnDownload').addEventListener('click', doDownload);
   $('#btnPublish').addEventListener('click', doPublish);
 
