@@ -70,9 +70,13 @@
   .badge.on{background:#e9f7ef;color:var(--ok)}
   .badge.off{background:#fdecec;color:var(--bad)}
   .srch{margin-bottom:10px}
-  .foot{position:fixed;left:0;right:0;bottom:0;padding:10px 12px;background:rgba(255,255,255,.96);
+  /* z-index 必须足够高：否则会被托管平台（Netlify 角标等）的固定元素、手机浏览器的
+     底部工具栏盖住，导致「保存并发布」按钮点不到。safe-area 用于避开 iPhone 底部小黑条。 */
+  .foot{position:fixed;left:0;right:0;bottom:0;z-index:2147483000;
+    padding:10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+    background:#fff;box-shadow:0 -2px 10px rgba(0,0,0,.08);
     border-top:1px solid var(--line);display:flex;gap:8px}
-  .foot button{margin:0}
+  .foot button{margin:0;flex:1}
   .sec{font-size:12px;color:var(--sub);margin:10px 0 4px}
 </style>
 </head>
