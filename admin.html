@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>笔记管理后台</title>
+<style>
+  :root{--bg:#f5f6f8;--card:#fff;--line:#e2e5ea;--txt:#1b1f24;--sub:#6b7280;
+    --ok:#0a7f3f;--bad:#c62828;--warn:#a05a00;--btn:#1a73e8;--dark:#1f2937}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;padding:14px 12px 80px;background:var(--bg);color:var(--txt);
+    font:15px/1.65 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+  h1{font-size:18px;margin:0 0 4px}
+  h2{font-size:15px;margin:0 0 10px}
+  h3{font-size:14px;margin:16px 0 8px;color:var(--sub)}
+  .hint{color:var(--sub);font-size:13px;margin:0 0 14px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
+  label{display:block;font-size:13px;color:var(--sub);margin:12px 0 5px}
+  label:first-child{margin-top:0}
+  input[type=password],input[type=text],input[type=file],select,textarea{
+    width:100%;padding:10px 11px;font-size:16px;border:1px solid var(--line);
+    border-radius:9px;background:#fff;color:var(--txt);font-family:inherit}
+  textarea{min-height:80px;line-height:1.6;resize:vertical}
+  select{appearance:none;background:#fff}
+  input[readonly]{background:#f3f4f6;color:var(--sub)}
+  button{width:100%;padding:13px;font-size:16px;font-weight:600;border:0;
+    border-radius:9px;background:var(--btn);color:#fff;margin-top:10px}
+  button:disabled{opacity:.45}
+  button.ghost{background:#fff;color:var(--btn);border:1px solid var(--btn)}
+  button.dark{background:var(--dark)}
+  button.danger{background:var(--bad)}
+  .row{display:flex;gap:8px}
+  .row>*{flex:1}
+  .tabs{display:flex;gap:6px;margin-bottom:12px}
+  .tabs button{margin:0;padding:10px 4px;font-size:14px;background:#fff;color:var(--sub);
+    border:1px solid var(--line);border-radius:9px}
+  .tabs button.on{background:var(--btn);color:#fff;border-color:var(--btn)}
+  .rules{border:1px solid var(--line);border-radius:9px;overflow:hidden;margin-bottom:8px}
+  .rule{display:flex;gap:6px;padding:8px;border-bottom:1px solid var(--line);align-items:center}
+  .rule:last-child{border-bottom:0}
+  .rule input{flex:1;min-width:0;font-size:15px;padding:9px 10px;border:1px solid var(--line);border-radius:7px}
+  .rule .del{flex:0 0 auto;width:36px;height:38px;margin:0;padding:0;font-size:19px;
+    background:#fdecec;color:var(--bad);border-radius:7px}
+  .rule .arrow{flex:0 0 auto;color:var(--sub);font-size:14px}
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th,td{text-align:left;padding:8px 4px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--sub);font-weight:500;width:32%}
+  .ok{color:var(--ok);font-weight:600}
+  .bad{color:var(--bad);font-weight:600}
+  .warn{color:var(--warn);font-weight:600}
+  .msg{margin-top:12px;padding:12px;border-radius:10px;font-size:14px;line-height:1.75}
+  .m-ok{background:#e9f7ef;color:#0a5c2e}
+  .m-bad{background:#fdecec;color:#8a1c1c}
+  .m-warn{background:#fff6e5;color:#7a4400}
+  .m-info{background:#eaf2fd;color:#12467d}
+  a.dl{display:block;padding:12px;margin:8px 0;background:#eaf2fd;color:#12467d;
+    border-radius:9px;text-decoration:none;font-weight:600;text-align:center;font-size:15px}
+  ol,ul{padding-left:20px;margin:8px 0 0}
+  li{margin:5px 0}
+  code{background:#eef0f3;padding:1px 5px;border-radius:4px;font-size:12.5px;
+    font-family:ui-monospace,Menlo,Consolas,monospace}
+  .item{border:1px solid var(--line);border-radius:9px;padding:10px;margin-bottom:8px;background:#fff}
+  .item .t{font-weight:600;margin-bottom:2px}
+  .item .m{font-size:12px;color:var(--sub);margin-bottom:8px}
+  .para{margin-bottom:8px}
+  .para textarea{min-height:62px;font-size:15px}
+  .badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:12px;
+    background:#eef0f3;color:var(--sub)}
+  .badge.on{background:#e9f7ef;color:var(--ok)}
+  .badge.off{background:#fdecec;color:var(--bad)}
+  .srch{margin-bottom:10px}
+  .foot{position:fixed;left:0;right:0;bottom:0;padding:10px 12px;background:rgba(255,255,255,.96);
+    border-top:1px solid var(--line);display:flex;gap:8px}
+  .foot button{margin:0}
+  .sec{font-size:12px;color:var(--sub);margin:10px 0 4px}
+</style>
+</head>
+<body>
+
+<h1>笔记管理后台</h1>
+<p class="hint" id="sub">用管理员口令登录后可直接改内容并发布到网站。</p>
+
+<!-- ============ 登录 ============ -->
+<div class="card" id="paneLogin">
+  <label for="aPwd">管理员口令</label>
+  <input type="password" id="aPwd" autocomplete="off" placeholder="首次使用请先点下面生成配置">
+  <button id="btnLogin">登录</button>
+  <button class="ghost" id="btnGoInit">首次使用：生成管理员配置</button>
+</div>
+
+<!-- ============ 初始化向导 ============ -->
+<div class="card" id="paneInit" hidden>
+  <h2>生成管理员配置（admin.bin）</h2>
+  <p class="hint" style="margin-bottom:0">这个文件里存的是<b>加密后的</b> GitHub 令牌和阅读口令，用你设的管理员口令加密。生成后上传到仓库 <code>data/</code> 目录即可。</p>
+
+  <h3>1. 设置管理员口令</h3>
+  <input type="password" id="iAdminPwd" placeholder="建议 8 位以上，字母+数字" autocomplete="new-password">
+
+  <h3>2. 阅读口令（网站解锁用的那个）</h3>
+  <input type="text" id="iReadPwd" value="xiangxinkexue123321" autocomplete="off">
+
+  <h3>3. GitHub 令牌（可留空，留空则只能下载不能自动发布）</h3>
+  <input type="password" id="iToken" placeholder="github_pat_... 或 ghp_..." autocomplete="off">
+  <p class="hint" style="margin-top:6px;font-size:12px">
+    必须用 Fine-grained token：GitHub → Settings → Developer settings →
+    Personal access tokens → Fine-grained tokens → Generate new token →
+    <b>只勾选 shanshu-videos 这一个仓库</b> → Permissions 里把
+    <b>Contents 设为 Read and write</b> → 生成后复制。
+  </p>
+
+  <h3>4. 仓库信息</h3>
+  <input type="text" id="iOwner" value="yangweijing" placeholder="owner">
+  <input type="text" id="iRepo" value="shanshu-videos" placeholder="repo" style="margin-top:8px">
+  <input type="text" id="iBranch" value="master" placeholder="branch" style="margin-top:8px">
+
+  <button id="btnGenAdmin">生成并下载 admin.bin</button>
+  <button class="ghost" id="btnBackLogin">返回登录</button>
+</div>
+
+<!-- ============ 主界面 ============ -->
+<div id="paneMain" hidden>
+  <div class="card">
+    <table>
+      <tr><th>模式</th><td id="mMode"></td></tr>
+      <tr><th>内容规模</th><td id="mScale"></td></tr>
+    </table>
+  </div>
+
+  <div class="tabs">
+    <button id="tabRep" class="on">批量替换</button>
+    <button id="tabEdit">单条编辑</button>
+  </div>
+
+  <!-- 批量替换 -->
+  <div class="card" id="paneRep">
+    <h2>批量替换</h2>
+    <p class="hint">把某个词在所有笔记里统一换掉，index 和 full 会一起改。</p>
+    <div class="rules" id="rules"></div>
+    <button class="ghost" id="btnAddRule">＋ 加一行</button>
+    <button class="ghost" id="btnPreview">预演：看看能替换多少处</button>
+  </div>
+
+  <!-- 单条编辑 -->
+  <div class="card" id="paneEdit" hidden>
+    <h2>单条编辑</h2>
+    <input type="text" id="kw" class="srch" placeholder="搜索标题或内容关键词">
+    <select id="selItem" size="1"></select>
+    <div style="margin-top:8px"><span class="badge" id="pickInfo">选中一条后在这里编辑</span></div>
+
+    <div id="editor" style="margin-top:12px"></div>
+  </div>
+</div>
+
+<div class="foot" id="foot" hidden>
+  <button class="ghost" id="btnDownload">下载 .enc</button>
+  <button class="dark" id="btnPublish">保存并发布</button>
+</div>
+
+<div id="out"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  var MAGIC = [0x4e, 0x42, 0x30, 0x31];
+  var CFG = { iterations: 600000, keyLen: 256, hash: 'SHA-256' };
+  var $ = function (s) { return document.querySelector(s); };
+  var out = $('#out');
+
+  /* 全局状态 */
+  var ST = {
+    adminPwd: '',      // 管理员口令
+    cfg: null,         // {token, owner, repo, branch, readPwd}
+    autoMode: false,   // 有 token = 可自动发布
+    indexText: '',     // index.json 原文
+    fullText: '',      // full.json 原文
+    indexObj: null,
+    fullObj: null,
+    dirty: false,
+  };
+
+  function show(el, on) { el.hidden = !on; }
+  function msg(cls, html) {
+    out.innerHTML = '<div class="msg ' + cls + '">' + html + '</div>';
+    out.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  /* ================= 加解密 ================= */
+  async function deriveKey(password, salt) {
+    var km = await crypto.subtle.importKey('raw', new TextEncoder().encode(password),
+      'PBKDF2', false, ['deriveKey']);
+    return crypto.subtle.deriveKey(
+      { name: 'PBKDF2', salt: salt, iterations: CFG.iterations, hash: CFG.hash },
+      km, { name: 'AES-GCM', length: CFG.keyLen }, false, ['encrypt', 'decrypt']);
+  }
+  async function decryptBytes(bytes, pwd) {
+    for (var i = 0; i < 4; i += 1) {
+      if (bytes[i] !== MAGIC[i]) throw new Error('不是有效的加密文件（文件头不对）');
+    }
+    var salt = bytes.slice(4, 20), iv = bytes.slice(20, 32), body = bytes.slice(32);
+    var ct = body.slice(0, body.length - 16), tag = body.slice(body.length - 16);
+    var joined = new Uint8Array(ct.length + tag.length);
+    joined.set(ct, 0); joined.set(tag, ct.length);
+    var key = await deriveKey(pwd, salt);
+    var plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: iv, tagLength: 128 }, key, joined);
+    return new TextDecoder().decode(plain);
+  }
+  async function encryptString(text, pwd) {
+    var salt = crypto.getRandomValues(new Uint8Array(16));
+    var iv = crypto.getRandomValues(new Uint8Array(12));
+    var key = await deriveKey(pwd, salt);
+    var buf = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv, tagLength: 128 },
+      key, new TextEncoder().encode(text));
+    var all = new Uint8Array(buf);
+    var ct = all.slice(0, all.length - 16), tag = all.slice(all.length - 16);
+    var res = new Uint8Array(4 + 16 + 12 + ct.length + 16);
+    res.set(MAGIC, 0); res.set(salt, 4); res.set(iv, 20);
+    res.set(ct, 32); res.set(tag, 32 + ct.length);
+    return res;
+  }
+
+  async function fetchBytes(url) {
+    var r = await fetch(url + '?_=' + Date.now(), { cache: 'no-store' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return new Uint8Array(await r.arrayBuffer());
+  }
+
+  /* ================= base64 ================= */
+  function toB64(u8) {
+    var s = '', CH = 0x8000;
+    for (var i = 0; i < u8.length; i += CH) {
+      s += String.fromCharCode.apply(null, u8.subarray(i, i + CH));
+    }
+    return btoa(s);
+  }
+  function fromB64(b64) {
+    var bin = atob(b64.replace(/\n/g, ''));
+    var u8 = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i += 1) u8[i] = bin.charCodeAt(i);
+    return u8;
+  }
+
+  /* ================= GitHub API ================= */
+  function ghHeaders() {
+    return {
+      'Authorization': 'Bearer ' + ST.cfg.token,
+      'Accept': 'application/vnd.github+json',
+      'Content-Type': 'application/json',
+      'X-GitHub-Api-Version': '2022-11-28',
+    };
+  }
+  function ghUrl(path) {
+    return 'https://api.github.com/repos/' + ST.cfg.owner + '/' + ST.cfg.repo + '/contents/' + path;
+  }
+  async function ghGet(path) {
+    var r = await fetch(ghUrl(path) + '?ref=' + encodeURIComponent(ST.cfg.branch),
+      { headers: ghHeaders(), cache: 'no-store' });
+    if (!r.ok) throw new Error('读取 ' + path + ' 失败：HTTP ' + r.status
+      + '（若 404 请检查仓库名/分支/令牌权限）');
+    return r.json();
+  }
+  async function ghPut(path, u8, sha, message) {
+    var r = await fetch(ghUrl(path), {
+      method: 'PUT',
+      headers: ghHeaders(),
+      body: JSON.stringify({ message: message, content: toB64(u8), sha: sha, branch: ST.cfg.branch }),
+    });
+    if (!r.ok) {
+      var t = await r.text();
+      throw new Error('提交 ' + path + ' 失败：HTTP ' + r.status + ' ' + t.slice(0, 200));
+    }
+    return r.json();
+  }
+
+  /* ================= 登录 ================= */
+  async function doLogin() {
+    var pwd = $('#aPwd').value;
+    if (!pwd) { msg('m-bad', '请输入管理员口令。'); return; }
+    $('#btnLogin').disabled = true;
+    msg('m-info', '正在读取管理员配置…');
+    try {
+      var cfg = null, autoMode = false;
+      try {
+        var bin = await fetchBytes('data/admin.bin');
+        var txt = await decryptBytes(bin, pwd);
+        cfg = JSON.parse(txt);
+        autoMode = !!(cfg && cfg.token);
+      } catch (e) {
+        if (e && /HTTP 404/.test(e.message)) {
+          msg('m-warn', '服务器上还没有 <code>data/admin.bin</code>。'
+            + '走自动发布需要先生成并上传它；或者点「下载 .enc」用手动模式。'
+            + '<br><br>要用<b>手动模式</b>，请在这里填<b>阅读口令</b>再点登录：'
+            + '<input type="password" id="manualPwd" style="margin-top:8px" placeholder="阅读口令">'
+            + '<button class="ghost" id="btnManual">用手动模式登录</button>');
+          $('#btnManual').addEventListener('click', function () {
+            var rp = $('#manualPwd').value;
+            if (!rp) { msg('m-bad', '请填阅读口令。'); return; }
+            ST.adminPwd = ''; ST.cfg = { readPwd: rp }; ST.autoMode = false;
+            afterLogin();
+          });
+          return;
+        }
+        throw new Error('口令不对，或 admin.bin 已损坏（' + (e.message || e) + '）');
+      }
+
+      if (!cfg.readPwd) throw new Error('admin.bin 里没有阅读口令，请重新生成');
+      ST.adminPwd = pwd; ST.cfg = cfg; ST.autoMode = autoMode;
+      afterLogin();
+    } catch (e) {
+      msg('m-bad', '登录失败：' + (e.message || e));
+    } finally {
+      $('#btnLogin').disabled = false;
+    }
+  }
+
+  async function afterLogin() {
+    show($('#paneLogin'), false);
+    show($('#paneInit'), false);
+    show($('#paneMain'), true);
+    show($('#foot'), true);
+    $('#mMode').innerHTML = ST.autoMode
+      ? '<span class="ok">自动发布</span>（改完直接提交到 GitHub）'
+      : '<span class="warn">手动模式</span>（改完下载 .enc，需自己传到 GitHub）';
+
+    msg('m-info', '正在解密内容，需要几十秒（PBKDF2 60 万轮 × 大文件）…');
+    try {
+      var ib = await fetchBytes('data/index.enc');
+      ST.indexText = await decryptBytes(ib, ST.cfg.readPwd);
+      ST.indexObj = JSON.parse(ST.indexText);
+
+      var fb = await fetchBytes('data/full.enc');
+      ST.fullText = await decryptBytes(fb, ST.cfg.readPwd);
+      ST.fullObj = JSON.parse(ST.fullText);
+    } catch (e) {
+      msg('m-bad', '内容解密失败：' + (e.message || e)
+        + '<br><br>常见原因：admin.bin 里存的阅读口令跟 .enc 文件对不上。');
+      return;
+    }
+
+    var nCh = ST.fullObj.chapters ? ST.fullObj.chapters.length : 0;
+    var nIt = 0;
+    (ST.fullObj.chapters || []).forEach(function (c) { nIt += (c.items || []).length; });
+    $('#mScale').textContent = nCh + ' 个章节 / ' + nIt + ' 条笔记';
+
+    buildItemList('');
+    msg('m-ok', '加载完成。共 ' + nIt + ' 条笔记，可以开始改了。');
+  }
+
+  /* ================= 替换规则 ================= */
+  function addRule(a, b) {
+    var row = document.createElement('div');
+    row.className = 'rule';
+    row.innerHTML = '<input type="text" class="from" placeholder="原文">'
+      + '<span class="arrow">→</span>'
+      + '<input type="text" class="to" placeholder="新文">'
+      + '<button class="del" title="删除">×</button>';
+    row.querySelector('.del').addEventListener('click', function () {
+      if (document.querySelectorAll('#rules .rule').length > 1) row.remove();
+    });
+    if (a !== undefined) { row.querySelector('.from').value = a; row.querySelector('.to').value = b; }
+    $('#rules').appendChild(row);
+  }
+  function getRules() {
+    var rs = [];
+    document.querySelectorAll('#rules .rule').forEach(function (r) {
+      var f = r.querySelector('.from').value, t = r.querySelector('.to').value;
+      if (f !== '') rs.push({ from: f, to: t });
+    });
+    return rs;
+  }
+  function cnt(s, sub) { return sub ? s.split(sub).length - 1 : 0; }
+
+  function applyRulesToAll() {
+    var rules = getRules();
+    if (!rules.length) { msg('m-bad', '至少填一行替换规则（左边不能空）。'); return null; }
+    var log = [];
+    var a = ST.indexText, b = ST.fullText;
+    rules.forEach(function (r) {
+      var n = cnt(a, r.from) + cnt(b, r.from);
+      a = a.split(r.from).join(r.to);
+      b = b.split(r.from).join(r.to);
+      // 新词若包含原词（如「山术」→「小道山术」），会把计数带回来，需扣掉，否则「剩余」虚高
+      var selfBack = cnt(r.to, r.from) * n;
+      var left = Math.max(0, cnt(a, r.from) + cnt(b, r.from) - selfBack);
+      log.push({ from: r.from, to: r.to, n: n, left: left });
+    });
+    try {
+      ST.indexObj = JSON.parse(a);
+      ST.fullObj = JSON.parse(b);
+    } catch (e) {
+      msg('m-bad', '替换后 JSON 结构被破坏了（' + e.message + '）。'
+        + '多半是替换的文字里带了英文引号或反斜杠，建议只替换纯中文。');
+      return null;
+    }
+    ST.indexText = a; ST.fullText = b; ST.dirty = true;
+    return log;
+  }
+
+  function previewReplace() {
+    var rules = getRules();
+    if (!rules.length) { msg('m-bad', '至少填一行替换规则。'); return; }
+    var h = '<b>预演结果（还没真的改）</b><table>';
+    rules.forEach(function (r) {
+      var n = cnt(ST.indexText, r.from) + cnt(ST.fullText, r.from);
+      h += '<tr><th>「' + r.from + '」→「' + r.to + '」</th><td>'
+        + (n > 0 ? '<span class="ok">找到 ' + n + ' 处</span>' : '<span class="warn">没找到</span>')
+        + '</td></tr>';
+    });
+    h += '</table><br>确认无误后点底部的<b>保存并发布</b>。';
+    msg('m-info', h);
+  }
+
+  /* ================= 单条编辑 ================= */
+  function flatItems() {
+    var arr = [];
+    (ST.fullObj.chapters || []).forEach(function (c, ci) {
+      (c.items || []).forEach(function (it, ii) {
+        arr.push({ ci: ci, ii: ii, it: it, ch: c.chapter });
+      });
+    });
+    return arr;
+  }
+
+  function buildItemList(kw) {
+    var sel = $('#selItem');
+    sel.innerHTML = '';
+    var arr = flatItems();
+    var k = (kw || '').trim();
+    var hit = 0;
+    arr.forEach(function (o) {
+      var blob = (o.it.title || '') + ' ' + (o.it.meta || '');
+      (o.it.sections || []).forEach(function (s) {
+        (s.b || []).forEach(function (p) { blob += ' ' + (p.v || ''); });
+      });
+      if (k && blob.indexOf(k) === -1) return;
+      hit += 1;
+      var op = document.createElement('option');
+      op.value = o.ci + '|' + o.ii;
+      op.textContent = o.ch + ' · ' + (o.it.no || '') + ' ' + (o.it.title || '(无标题)');
+      sel.appendChild(op);
+    });
+    var info = $('#pickInfo');
+    info.className = 'badge' + (k ? ' on' : '');
+    info.textContent = k ? ('匹配 ' + hit + ' 条') : ('共 ' + arr.length + ' 条');
+    if (sel.options.length) {
+      sel.selectedIndex = 0;
+      renderEditor(sel.value);
+    } else {
+      $('#editor').innerHTML = '<p class="hint">没有匹配的笔记。</p>';
+    }
+  }
+
+  function findIndexItem(id) {
+    var chs = ST.indexObj.chapters || [];
+    for (var i = 0; i < chs.length; i += 1) {
+      var items = chs[i].items || [];
+      for (var j = 0; j < items.length; j += 1) {
+        if (items[j].id === id) return items[j];
+      }
+    }
+    return null;
+  }
+
+  function renderEditor(val) {
+    var p = val.split('|');
+    var ci = parseInt(p[0], 10), ii = parseInt(p[1], 10);
+    var it = ST.fullObj.chapters[ci].items[ii];
+    var ed = $('#editor');
+    var h = '';
+
+    h += '<h3>标题</h3><input type="text" id="edTitle" value="' + esc(it.title || '') + '">';
+    h += '<h3>元信息</h3><input type="text" id="edMeta" value="' + esc(it.meta || '') + '">';
+
+    (it.sections || []).forEach(function (s, si) {
+      var head = (s.h || '').trim();
+      h += '<h3>' + (head ? esc(head) : ('正文 第' + (si + 1) + '节')) + '</h3>';
+      (s.b || []).forEach(function (para, pi) {
+        h += '<div class="para"><textarea data-si="' + si + '" data-pi="' + pi + '">'
+          + esc(para.v || '') + '</textarea>'
+          + '<button class="ghost" data-delp="' + si + '|' + pi + '" '
+          + 'style="margin-top:4px;padding:7px;font-size:13px">删除这段</button></div>';
+      });
+      h += '<button class="ghost" data-addp="' + si + '" style="padding:9px;font-size:14px">＋ 新增一段</button>';
+    });
+
+    h += '<h3>同步摘要</h3><button class="ghost" id="btnSyncSum">用正文第二段刷新目录摘要</button>';
+
+    ed.innerHTML = h;
+
+    ed.querySelectorAll('[data-delp]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var q = b.getAttribute('data-delp').split('|');
+        var s = it.sections[+q[0]];
+        s.b.splice(+q[1], 1);
+        ST.dirty = true;
+        renderEditor(val);
+        msg('m-info', '已删除一段。点底部「保存并发布」生效。');
+      });
+    });
+    ed.querySelectorAll('[data-addp]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        saveEditor(val);
+        var s = it.sections[+b.getAttribute('data-addp')];
+        s.b.push({ t: 'p', v: '' });
+        ST.dirty = true;
+        renderEditor(val);
+      });
+    });
+    var bs = $('#btnSyncSum');
+    if (bs) bs.addEventListener('click', function () {
+      saveEditor(val);
+      var idx = findIndexItem(it.id);
+      var sec = (it.sections || [])[0];
+      var nv = sec && sec.b && sec.b[1] ? sec.b[1].v : (sec && sec.b && sec.b[0] ? sec.b[0].v : '');
+      if (!idx) { msg('m-warn', '目录里没找到这条，无法同步。'); return; }
+      idx.summary = nv;
+      idx.chars = (it.sections || []).reduce(function (a, s2) {
+        return a + (s2.b || []).reduce(function (x, p2) { return x + (p2.v || '').length; }, 0);
+      }, 0);
+      ST.dirty = true;
+      msg('m-ok', '摘要已同步为：' + nv.slice(0, 40) + (nv.length > 40 ? '…' : ''));
+    });
+
+    ['edTitle', 'edMeta'].forEach(function (id) {
+      $('#' + id).addEventListener('input', function () { ST.dirty = true; });
+    });
+    ed.querySelectorAll('textarea[data-si]').forEach(function (t) {
+      t.addEventListener('input', function () { ST.dirty = true; });
+    });
+  }
+
+  function esc(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  /** 把编辑器里的内容写回内存对象 */
+  function saveEditor(val) {
+    if (!val || !ST.fullObj) return;
+    var p = val.split('|');
+    var it = ST.fullObj.chapters[+p[0]].items[+p[1]];
+    var tEl = $('#edTitle'), mEl = $('#edMeta');
+    if (tEl) it.title = tEl.value;
+    if (mEl) it.meta = mEl.value;
+
+    var idx = findIndexItem(it.id);
+    if (idx) {
+      idx.title = it.title;
+      idx.meta = it.meta;
+    }
+
+    var tas = document.querySelectorAll('#editor textarea[data-si]');
+    tas.forEach(function (t) {
+      var si = +t.getAttribute('data-si'), pi = +t.getAttribute('data-pi');
+      var s = (it.sections || [])[si];
+      if (s && s.b && s.b[pi]) s.b[pi].v = t.value;
+    });
+  }
+
+  /* ================= 保存 / 发布 ================= */
+  function serialize() {
+    ST.indexText = JSON.stringify(ST.indexObj);
+    ST.fullText = JSON.stringify(ST.fullObj);
+  }
+
+  async function makeBlobs() {
+    serialize();
+    var ib = await encryptString(ST.indexText, ST.cfg.readPwd);
+    var fb = await encryptString(ST.fullText, ST.cfg.readPwd);
+    // 回读自检
+    var a = await decryptBytes(ib, ST.cfg.readPwd);
+    var b = await decryptBytes(fb, ST.cfg.readPwd);
+    if (a !== ST.indexText || b !== ST.fullText) throw new Error('加密回读校验失败');
+    return { index: ib, full: fb };
+  }
+
+  async function doDownload() {
+    try {
+      $('#btnDownload').disabled = true;
+      msg('m-info', '正在加密…');
+      var blobs = await makeBlobs();
+      var h = '<b>下载下面两个文件，上传到仓库 data/ 目录覆盖即可。</b>';
+      [['index.enc', blobs.index], ['full.enc', blobs.full]].forEach(function (pair) {
+        var url = URL.createObjectURL(new Blob([pair[1]], { type: 'application/octet-stream' }));
+        h += '<a class="dl" download="' + pair[0] + '" href="' + url + '">⬇ '
+          + pair[0] + '（' + pair[1].length + ' 字节，已校验）</a>';
+      });
+      h += '<div class="msg m-warn" style="margin-top:10px">上传完等 1–2 分钟，'
+        + '然后访问 <code>网址/?reset=1</code> 清一次缓存就能看到新内容。</div>';
+      msg('m-ok', h);
+    } catch (e) {
+      msg('m-bad', '生成失败：' + (e.message || e));
+    } finally {
+      $('#btnDownload').disabled = false;
+    }
+  }
+
+  async function doPublish() {
+    if (!ST.autoMode) {
+      msg('m-warn', '当前是手动模式，没有 GitHub 令牌。请点左边的「下载 .enc」手动上传，'
+        + '或重新生成 admin.bin 并填入令牌。');
+      return;
+    }
+    if (!$('#paneEdit').hidden) {
+      var v = $('#selItem').value;
+      if (v) saveEditor(v);
+    }
+    $('#btnPublish').disabled = true;
+    try {
+      msg('m-info', '正在加密内容…');
+      var blobs = await makeBlobs();
+
+      msg('m-info', '正在提交到 GitHub（约 2 MB，请稍候）…');
+      var step = [];
+
+      var iMeta = await ghGet('data/index.enc');
+      await ghPut('data/index.enc', blobs.index, iMeta.sha, '更新 index.enc');
+      step.push('index.enc ✔');
+
+      var fMeta = await ghGet('data/full.enc');
+      await ghPut('data/full.enc', blobs.full, fMeta.sha, '更新 full.enc');
+      step.push('full.enc ✔');
+
+      // 顺带把 app.js 的版本号 +1，绕开浏览器/CDN 缓存
+      var ver = 'v' + Date.now().toString(36);
+      try {
+        var aMeta = await ghGet('app.js');
+        var aTxt = new TextDecoder().decode(fromB64(aMeta.content));
+        var nTxt = aTxt.replace(/(const\s+DATA_VER\s*=\s*')[^']*(')/, '$1' + ver + '$2');
+        if (nTxt !== aTxt) {
+          await ghPut('app.js', new TextEncoder().encode(nTxt), aMeta.sha, 'bump DATA_VER ' + ver);
+          step.push('app.js 版本号 ✔（' + ver + '）');
+        } else {
+          step.push('app.js 未找到 DATA_VER，已跳过');
+        }
+      } catch (e) {
+        step.push('app.js 版本号更新失败（' + (e.message || e) + '）——不影响内容，'
+          + '但访客可能看到旧内容，需要访问 网址/?reset=1');
+      }
+
+      ST.dirty = false;
+      msg('m-ok', '<b>发布成功！</b><br>' + step.join('<br>')
+        + '<br><br>EdgeOne 会在 <b>1–2 分钟内</b>自动部署。之后刷新网址即可看到新内容'
+        + '（若还是旧的，访问 <code>网址/?reset=1</code>）。');
+    } catch (e) {
+      msg('m-bad', '发布失败：' + (e.message || e)
+        + '<br><br>如果提示 401/403，说明令牌过期或权限不足；'
+        + '提示 404 请检查仓库名和分支（master / main）。');
+    } finally {
+      $('#btnPublish').disabled = false;
+    }
+  }
+
+  /* ================= 初始化向导 ================= */
+  async function genAdmin() {
+    var ap = $('#iAdminPwd').value;
+    var rp = $('#iReadPwd').value;
+    if (!ap) { msg('m-bad', '请先设置管理员口令。'); return; }
+    if (ap.length < 6) { msg('m-warn', '管理员口令太短了，建议至少 8 位。仍然继续…'); }
+    if (!rp) { msg('m-bad', '请填阅读口令。'); return; }
+    var cfg = {
+      readPwd: rp,
+      token: ($('#iToken').value || '').trim(),
+      owner: ($('#iOwner').value || '').trim(),
+      repo: ($('#iRepo').value || '').trim(),
+      branch: ($('#iBranch').value || '').trim() || 'master',
+    };
+    $('#btnGenAdmin').disabled = true;
+    msg('m-info', '正在加密（PBKDF2 60 万轮，约几秒）…');
+    try {
+      var blob = await encryptString(JSON.stringify(cfg), ap);
+      var back = await decryptBytes(blob, ap);
+      if (back !== JSON.stringify(cfg)) throw new Error('回读校验失败');
+      var url = URL.createObjectURL(new Blob([blob], { type: 'application/octet-stream' }));
+      msg('m-ok', '<b>生成成功。</b>'
+        + '<a class="dl" download="admin.bin" href="' + url + '">⬇ 下载 admin.bin（'
+        + blob.length + ' 字节）</a>'
+        + '<b>接下来：</b><ol>'
+        + '<li>把 <code>admin.bin</code> 上传到仓库 <code>data/</code> 目录，点最底部 <b>Commit changes</b></li>'
+        + '<li>等 1–2 分钟部署</li>'
+        + '<li>回到本页，用刚才设的<b>管理员口令</b>登录</li></ol>'
+        + (cfg.token ? '' : '<div class="msg m-warn" style="margin-top:10px">你没填令牌，'
+          + '登录后只能「下载 .enc」手动上传，不能一键发布。</div>'));
+    } catch (e) {
+      msg('m-bad', '生成失败：' + (e.message || e));
+    } finally {
+      $('#btnGenAdmin').disabled = false;
+    }
+  }
+
+  /* ================= 事件绑定 ================= */
+  addRule('', '');
+  $('#btnLogin').addEventListener('click', doLogin);
+  $('#btnGoInit').addEventListener('click', function () {
+    show($('#paneLogin'), false); show($('#paneInit'), true); out.innerHTML = '';
+  });
+  $('#btnBackLogin').addEventListener('click', function () {
+    show($('#paneInit'), false); show($('#paneLogin'), true); out.innerHTML = '';
+  });
+  $('#btnGenAdmin').addEventListener('click', genAdmin);
+  $('#btnAddRule').addEventListener('click', function () { addRule('', ''); });
+  $('#btnPreview').addEventListener('click', previewReplace);
+  $('#btnDownload').addEventListener('click', doDownload);
+  $('#btnPublish').addEventListener('click', doPublish);
+
+  $('#tabRep').addEventListener('click', function () {
+    $('#tabRep').className = 'on'; $('#tabEdit').className = '';
+    show($('#paneRep'), true); show($('#paneEdit'), false);
+  });
+  $('#tabEdit').addEventListener('click', function () {
+    if (!ST.fullObj) return;
+    $('#tabEdit').className = 'on'; $('#tabRep').className = '';
+    show($('#paneRep'), false); show($('#paneEdit'), true);
+  });
+
+  $('#kw').addEventListener('input', function () { buildItemList(this.value); });
+  $('#selItem').addEventListener('change', function () {
+    saveEditor(this.getAttribute('data-last') || this.value);
+    renderEditor(this.value);
+    this.setAttribute('data-last', this.value);
+  });
+})();
+</script>
+</body>
+</html>
