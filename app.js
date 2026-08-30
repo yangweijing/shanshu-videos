@@ -261,7 +261,12 @@ async function fetchBytes(url) {
   // 带版本号查询串 => 新 URL => 缓存里必然没有，直接取新文件
   const r = await fetch(url + sep + 'v=' + DATA_VER, { cache: 'no-cache' });
   if (!r.ok) throw new Error('HTTP ' + r.status + ' ' + url);
-  return u8(await r.arrayBuffer());
+  const buf = await r.arrayBuffer();
+  if (buf.byteLength < 32) {
+    // QQ 浏览器等会把二进制文件转码成文本，导致字节被截断
+    throw new Error('文件截断：' + buf.byteLength + ' 字节（应为 >32），浏览器可能拦截了二进制下载。请换 Chrome/Safari 或关闭省流量模式。');
+  }
+  return u8(buf);
 }
 
 /** 拉取密文：index 先到（含 salt），full 后台并行下载不阻塞解锁界面 */
