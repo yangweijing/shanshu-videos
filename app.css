@@ -714,3 +714,10 @@ mark {
 :root[data-theme="dark"] .lockErr { color: #ff8f7f; }
 
 .lockTip { margin: 20px 0 0; color: var(--text-faint); font-size: 12px; line-height: 1.65; }
+/* 后台入口：做成不抢眼的小字/小图标，不干扰正常阅读 */
+.lockAdmin { margin: 14px 0 0; font-size: 12px; }
+.lockAdmin a { color: var(--text-faint); text-decoration: none;
+  border-bottom: 1px dashed var(--text-faint); padding-bottom: 1px; }
+.lockAdmin a:focus-visible { outline: 2px solid var(--accent, #4a90d9); outline-offset: 3px; }
+a.iconBtn { display: inline-flex; align-items: center; justify-content: center;
+  text-decoration: none; }

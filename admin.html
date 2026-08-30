@@ -84,6 +84,20 @@
     border-top:1px solid var(--line);display:flex;gap:8px}
   .foot button{margin:0;flex:1}
   .sec{font-size:12px;color:var(--sub);margin:10px 0 4px}
+  /* 整条操作区：手机上一行放不下就自动换行，别挤成一团 */
+  .itemOps{display:flex;flex-wrap:wrap;gap:6px;padding:10px 0;
+    border-bottom:1px dashed var(--line);margin-bottom:12px}
+  .itemOps button{margin:0;flex:1 1 auto;min-width:96px;padding:9px 8px;font-size:13px}
+  .itemOps .danger{background:#fff5f5;color:#c0392b;border-color:#f3c9c3}
+  .danger{background:#fff5f5;color:#c0392b;border-color:#f3c9c3}
+  .danger:active{background:#fde8e6}
+  #editor .para textarea{min-height:110px}
+  /* 表格编辑区：单独一个框，「|」分列、换行分行，避免表格被压成字符串 */
+  .para.tbl{border:1px solid var(--line);border-radius:10px;padding:10px;margin:10px 0;
+    background:#fbfbfa}
+  .tblHead{font-size:13px;color:var(--sub);margin-bottom:6px}
+  .tblBox{min-height:110px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-size:13px;line-height:1.6;white-space:pre}
 </style>
 
 <style id="kill-netlify-hud">
@@ -108,19 +122,24 @@
 
 <!-- ============ 登录 ============ -->
 <div class="card" id="paneLogin">
-  <label for="aPwd">管理员口令</label>
-  <input type="password" id="aPwd" autocomplete="off" placeholder="首次使用请先点下面生成配置">
+  <label for="aUser">管理员账号</label>
+  <input type="text" id="aUser" autocomplete="username" placeholder="用户名">
+  <label for="aPwd" style="margin-top:10px">管理员口令</label>
+  <input type="password" id="aPwd" autocomplete="current-password" placeholder="登录口令">
   <button id="btnLogin">登录</button>
-  <button class="ghost" id="btnGoInit">首次使用：生成管理员配置</button>
+  <button class="ghost" id="btnGoInit">首次使用：设置管理员账号</button>
 </div>
 
 <!-- ============ 初始化向导 ============ -->
 <div class="card" id="paneInit" hidden>
-  <h2>生成管理员配置（admin.bin）</h2>
-  <p class="hint" style="margin-bottom:0">这个文件里存的是<b>加密后的</b> GitHub 令牌和阅读口令，用你设的管理员口令加密。生成后上传到仓库<b>根目录</b>即可。</p>
+  <h2>设置管理员账号</h2>
+  <p class="hint" style="margin-bottom:0">账号配置会<b>加密后</b>存成 <code>admin.txt</code> 放在仓库里，里面是 GitHub 令牌和阅读口令。设置好后点最下面的按钮，会自动上传到仓库，不用你手动传。</p>
 
-  <h3>1. 设置管理员口令</h3>
-  <input type="password" id="iAdminPwd" placeholder="建议 8 位以上，字母+数字" autocomplete="new-password">
+  <h3>1. 管理员账号</h3>
+  <input type="text" id="iAdminUser" value="admin" autocomplete="off" placeholder="用户名，可用默认 admin">
+  <input type="password" id="iAdminPwd" placeholder="登录口令，建议 8 位以上，字母+数字" autocomplete="new-password" style="margin-top:8px">
+
+  <h3>2. 阅读口令（网站解锁用的那个）</h3>
 
   <h3>2. 阅读口令（网站解锁用的那个）</h3>
   <input type="text" id="iReadPwd" value="xiangxinkexue123321" autocomplete="off">
@@ -139,7 +158,8 @@
   <input type="text" id="iRepo" value="shanshu-videos" placeholder="repo" style="margin-top:8px">
   <input type="text" id="iBranch" value="master" placeholder="branch" style="margin-top:8px">
 
-  <button id="btnGenAdmin">生成并下载 admin.bin</button>
+  <button id="btnGenAdmin">生成并自动上传到仓库</button>
+  <button class="ghost" id="btnGenDownload">只下载 admin.txt（手动上传用）</button>
   <button class="ghost" id="btnBackLogin">返回登录</button>
 </div>
 
@@ -147,9 +167,13 @@
 <div id="paneMain" hidden>
   <div class="card">
     <table>
-      <tr><th>模式</th><td id="mMode"></td></tr>
+      <tr><th>登录账号</th><td id="mUser"></td></tr>
+      <tr><th>发布方式</th><td id="mMode"></td></tr>
       <tr><th>内容规模</th><td id="mScale"></td></tr>
     </table>
+    <button class="ghost" id="btnReconfig" style="margin-top:10px">
+      ⚙ 重新设置（改账号 / 换 GitHub 令牌）
+    </button>
   </div>
 
   <div class="tabs">
@@ -179,7 +203,7 @@
 </div>
 
 <div class="foot" id="foot" hidden>
-  <button class="ghost" id="btnDownload">下载 .enc</button>
+  <button class="ghost" id="btnDownload">下载 .txt</button>
   <button class="dark" id="btnPublish">保存并发布</button>
 </div>
 
@@ -224,8 +248,8 @@
     for (var i = 0; i < 4; i += 1) {
       if (bytes[i] !== MAGIC[i]) throw new Error('不是有效的加密文件（文件头不对）');
     }
-    // forceSalt：模拟 app.js 的行为——站点端只用 index.enc 的 salt 派生密钥，
-    // 再用同一把密钥去解 full.enc。自检时必须走这条路径，否则测不出 salt 不一致的 bug。
+    // forceSalt：模拟 app.js 的行为——站点端只用 index.txt 的 salt 派生密钥，
+    // 再用同一把密钥去解 full.txt。自检时必须走这条路径，否则测不出 salt 不一致的 bug。
     var salt = forceSalt || bytes.slice(4, 20), iv = bytes.slice(20, 32), body = bytes.slice(32);
     var ct = body.slice(0, body.length - 16), tag = body.slice(body.length - 16);
     var joined = new Uint8Array(ct.length + tag.length);
@@ -248,9 +272,17 @@
     return res;
   }
 
+  /* 数据一律走「Base64 纯文本」通道（index.txt / full.txt / admin.txt）。
+     原因：GitHub Pages 会把二进制文件当文本做字符集转换，非法 UTF-8 字节会被替换，
+     加密数据因此损坏、永远解不开。Base64 全是 ASCII，任何转码都破坏不了。 */
   async function fetchBytes(url) {
     var r = await fetch(url + '?_=' + Date.now(), { cache: 'no-store' });
     if (!r.ok) throw new Error('HTTP ' + r.status);
+    if (/\.txt$/i.test(url.split('?')[0])) {
+      var s = await r.text();
+      if (s.length < 64) throw new Error('内容异常：只有 ' + s.length + ' 个字符');
+      return fromB64(s);
+    }
     return new Uint8Array(await r.arrayBuffer());
   }
 
@@ -288,21 +320,55 @@
       + '（若 404 请检查仓库名/分支/令牌权限）');
     return r.json();
   }
-  async function ghPut(path, u8, sha, message) {
-    var r = await fetch(ghUrl(path), {
-      method: 'PUT',
-      headers: ghHeaders(),
-      body: JSON.stringify({ message: message, content: toB64(u8), sha: sha, branch: ST.cfg.branch }),
+  function ghBase() {
+    return 'https://api.github.com/repos/' + ST.cfg.owner + '/' + ST.cfg.repo;
+  }
+  /* 一次提交多个文件（走 Git Data API）。
+     为什么不逐个用 Contents API：full.txt 有 1.7 MB，逐文件 PUT 容易被限流或超时，
+     而且要提交 2~3 次才会让站点内容自洽（index 和 full 必须同一把钥匙）。
+     用 Git Data API 可以「一次 commit 提交全部文件」，中途失败网站也不会变成半新半旧。 */
+  async function ghPost(path, body) {
+    var r = await fetch(ghBase() + path, {
+      method: 'POST', headers: ghHeaders(), body: JSON.stringify(body),
     });
     if (!r.ok) {
       var t = await r.text();
-      throw new Error('提交 ' + path + ' 失败：HTTP ' + r.status + ' ' + t.slice(0, 200));
+      throw new Error(path + ' 失败：HTTP ' + r.status + ' ' + t.slice(0, 300));
     }
     return r.json();
+  }
+  // files: [{path, text}]  text 是文件的最终文本内容（本站文件全是 Base64 纯文本）
+  async function ghCommitBatch(files, message) {
+    var refR = await fetch(ghBase() + '/git/ref/heads/'
+      + encodeURIComponent(ST.cfg.branch), { headers: ghHeaders(), cache: 'no-store' });
+    if (!refR.ok) throw new Error('读取分支失败：HTTP ' + refR.status
+      + '（检查分支名是不是 ' + ST.cfg.branch + '）');
+    var baseSha = (await refR.json()).object.sha;
+
+    var tree = [];
+    for (var i = 0; i < files.length; i += 1) {
+      var b = await ghPost('/git/blobs', { content: files[i].text, encoding: 'utf-8' });
+      tree.push({ path: files[i].path, mode: '100644', type: 'blob', sha: b.sha });
+    }
+    var tr = await ghPost('/git/trees', { base_tree: baseSha, tree: tree });
+    var cm = await ghPost('/git/commits',
+      { message: message, tree: tr.sha, parents: [baseSha] });
+    var up = await fetch(ghBase() + '/git/refs/heads/' + encodeURIComponent(ST.cfg.branch), {
+      method: 'PATCH', headers: ghHeaders(), body: JSON.stringify({ sha: cm.sha }),
+    });
+    if (!up.ok) {
+      var t2 = await up.text();
+      throw new Error('移动分支指针失败：HTTP ' + up.status + ' ' + t2.slice(0, 300));
+    }
+    return cm;
+  }
+  async function ghPutText(path, text, message) {
+    return ghCommitBatch([{ path: path, text: text }], message);
   }
 
   /* ================= 登录 ================= */
   async function doLogin() {
+    var user = ($('#aUser').value || '').trim();
     var pwd = $('#aPwd').value;
     if (!pwd) { msg('m-bad', '请输入管理员口令。'); return; }
     $('#btnLogin').disabled = true;
@@ -310,14 +376,18 @@
     try {
       var cfg = null, autoMode = false;
       try {
-        var bin = await fetchBytes('admin.bin');
+        var bin = await fetchBytes('admin.txt');
         var txt = await decryptBytes(bin, pwd);
         cfg = JSON.parse(txt);
         autoMode = !!(cfg && cfg.token);
+        // 账号名校验：配置里存了 user 就必须对上；老配置没有 user 字段则跳过
+        if (cfg && cfg.user && user && String(cfg.user).toLowerCase() !== user.toLowerCase()) {
+          throw new Error('账号名或口令不对');
+        }
       } catch (e) {
         if (e && /HTTP 404/.test(e.message)) {
-          msg('m-warn', '服务器上还没有 <code>admin.bin</code>。'
-            + '走自动发布需要先生成并上传它；或者点「下载 .enc」用手动模式。'
+          msg('m-warn', '服务器上还没有 <code>admin.txt</code>。'
+            + '走自动发布需要先设置并上传它；或者点「下载 .txt」用手动模式。'
             + '<br><br>要用<b>手动模式</b>，请在这里填<b>阅读口令</b>再点登录：'
             + '<input type="password" id="manualPwd" style="margin-top:8px" placeholder="阅读口令">'
             + '<button class="ghost" id="btnManual">用手动模式登录</button>');
@@ -329,10 +399,11 @@
           });
           return;
         }
-        throw new Error('口令不对，或 admin.bin 已损坏（' + (e.message || e) + '）');
+        if (/账号名或口令不对/.test(e.message)) throw e;
+        throw new Error('账号名或口令不对，或者 admin.txt 已损坏（' + (e.message || e) + '）');
       }
 
-      if (!cfg.readPwd) throw new Error('admin.bin 里没有阅读口令，请重新生成');
+      if (!cfg.readPwd) throw new Error('admin.txt 里没有阅读口令，请重新设置管理员账号');
       ST.adminPwd = pwd; ST.cfg = cfg; ST.autoMode = autoMode;
       afterLogin();
     } catch (e) {
@@ -347,22 +418,25 @@
     show($('#paneInit'), false);
     show($('#paneMain'), true);
     show($('#foot'), true);
+    var uEl = $('#mUser');
+    if (uEl) uEl.textContent = ST.cfg.user || '（老配置，未设账号名）';
     $('#mMode').innerHTML = ST.autoMode
-      ? '<span class="ok">自动发布</span>（改完直接提交到 GitHub）'
-      : '<span class="warn">手动模式</span>（改完下载 .enc，需自己传到 GitHub）';
+      ? '<span class="ok">自动发布</span>（改完点一下就直接上 GitHub）'
+      : '<span class="warn">手动模式</span>（没填令牌，改完要下载文件自己传）';
 
     msg('m-info', '正在解密内容，需要几十秒（PBKDF2 60 万轮 × 大文件）…');
     try {
-      var ib = await fetchBytes('index.enc');
+      var ib = await fetchBytes('index.txt');
+      var indexSalt = ib.slice(4, 20);   // 站点 app.js 只用 index 的 salt 派生密钥
       ST.indexText = await decryptBytes(ib, ST.cfg.readPwd);
       ST.indexObj = JSON.parse(ST.indexText);
 
-      var fb = await fetchBytes('full.enc');
-      ST.fullText = await decryptBytes(fb, ST.cfg.readPwd);
+      var fb = await fetchBytes('full.txt');
+      ST.fullText = await decryptBytes(fb, ST.cfg.readPwd, indexSalt);
       ST.fullObj = JSON.parse(ST.fullText);
     } catch (e) {
       msg('m-bad', '内容解密失败：' + (e.message || e)
-        + '<br><br>常见原因：admin.bin 里存的阅读口令跟 .enc 文件对不上。');
+        + '<br><br>常见原因：admin.txt 里存的阅读口令跟数据文件对不上。');
       return;
     }
 
@@ -602,12 +676,151 @@
     return null;
   }
 
+  /* ================= 整条增删挪 =================
+     注意：目录 index 和正文 full 是两份数据，任何增删都必须两边同步改，
+     否则站点会出现「目录里有、点开空白」或者反过来。 */
+  function pad3(n) { var s = String(n); while (s.length < 3) s = '0' + s; return s; }
+
+  function makeNewItem(ci) {
+    var chF = ST.fullObj.chapters[ci];
+    var prefix = String(chF.chapter || ('ch' + ci));
+    var maxNo = -1, maxSeq = 0, g = 0;
+    (chF.items || []).forEach(function (it) {
+      var m = /-(\d+)$/.exec(String(it.id || ''));
+      if (m) maxNo = Math.max(maxNo, parseInt(m[1], 10));
+      maxSeq = Math.max(maxSeq, Number(it.seq) || 0);
+    });
+    (ST.fullObj.chapters || []).forEach(function (c) {
+      (c.items || []).forEach(function (it) { g = Math.max(g, Number(it.gseq) || 0); });
+    });
+    var id = prefix + '-' + pad3(maxNo + 1);
+    return {
+      fullItem: { id: id, no: '新增', title: '新笔记', meta: '', seq: maxSeq + 1, gseq: g + 1,
+        sections: [{ h: '', b: [{ t: 'p', v: '' }] }] },
+      indexItem: { id: id, no: '新增', title: '新笔记', meta: '', summary: '',
+        seq: maxSeq + 1, gseq: g + 1, chars: 0 },
+    };
+  }
+
+  function countChars(it) {
+    return (it.sections || []).reduce(function (a, s) {
+      return a + (s.b || []).reduce(function (x, p) {
+        if (p.t === 'table') {
+          // 表格的 v 是二维数组，得按格子算，不能当成字符串取长度
+          return x + (p.v || []).reduce(function (y, row) {
+            return y + (row || []).reduce(function (z, c) { return z + String(c || '').length; }, 0);
+          }, 0);
+        }
+        return x + String(p.v || '').length;
+      }, 0);
+    }, 0);
+  }
+
+  // 改动后重建列表，并尽量停在刚动过的那条上
+  function refreshAfterItemChange(ci, ii) {
+    buildItemList($('#kw').value);
+    var sel = $('#selItem');
+    var target = ci + '|' + ii;
+    for (var i = 0; i < sel.options.length; i += 1) {
+      if (sel.options[i].value === target) { sel.selectedIndex = i; break; }
+    }
+    sel.setAttribute('data-last', sel.value);
+    renderEditor(sel.value);
+  }
+
+  function addItemAfter(ci, ii, copy) {
+    var chF = ST.fullObj.chapters[ci];
+    var src = chF.items[ii];
+    if (copy) {
+      var mk = makeNewItem(ci);
+      var cpF = JSON.parse(JSON.stringify(src));
+      cpF.id = mk.fullItem.id;
+      cpF.title = (src.title || '') + '（副本）';
+      cpF.no = src.no || '新增';
+      cpF.seq = mk.fullItem.seq;
+      cpF.gseq = mk.fullItem.gseq;
+      chF.items.splice(ii + 1, 0, cpF);
+      var chI = ST.indexObj.chapters[ci];
+      if (chI && chI.items) {
+        chI.items.splice(ii + 1, 0, {
+          id: cpF.id, no: cpF.no, title: cpF.title, meta: cpF.meta || '',
+          summary: (ST.indexObj.chapters[ci].items.filter(function (o) {
+            return o.id === src.id; })[0] || {}).summary || '',
+          seq: cpF.seq, gseq: cpF.gseq, chars: countChars(cpF),
+        });
+      }
+    } else {
+      var m2 = makeNewItem(ci);
+      chF.items.splice(ii + 1, 0, m2.fullItem);
+      var chI2 = ST.indexObj.chapters[ci];
+      if (chI2 && chI2.items) chI2.items.splice(ii + 1, 0, m2.indexItem);
+    }
+    ST.dirty = true;
+    refreshAfterItemChange(ci, ii + 1);
+    msg('m-ok', (copy ? '已复制为副本。' : '已新增一条。')
+      + '改好标题和正文后，点底部「保存并发布」才会生效。');
+  }
+
+  function delItem(ci, ii) {
+    var chF = ST.fullObj.chapters[ci];
+    var it = chF.items[ii];
+    if (!window.confirm('确定删除「' + (it.title || it.id) + '」这一条？\n'
+      + '删除后还要点底部「保存并发布」才会真正生效。')) return;
+    chF.items.splice(ii, 1);
+    var chI = ST.indexObj.chapters[ci];
+    if (chI && chI.items) {
+      for (var k = 0; k < chI.items.length; k += 1) {
+        if (chI.items[k].id === it.id) { chI.items.splice(k, 1); break; }
+      }
+    }
+    ST.dirty = true;
+    var next = Math.min(ii, chF.items.length - 1);
+    if (next < 0) {
+      $('#editor').innerHTML = '<p class="hint">这个章节已经空了。</p>';
+      buildItemList($('#kw').value);
+      msg('m-ok', '已删除。点底部「保存并发布」生效。');
+      return;
+    }
+    refreshAfterItemChange(ci, next);
+    msg('m-ok', '已删除。点底部「保存并发布」生效。');
+  }
+
+  function moveItem(ci, ii, d) {
+    var chF = ST.fullObj.chapters[ci];
+    var j = ii + d;
+    if (j < 0 || j >= chF.items.length) { msg('m-warn', '已经到头了。'); return; }
+    var a = chF.items[ii];
+    chF.items[ii] = chF.items[j];
+    chF.items[j] = a;
+    var chI = ST.indexObj.chapters[ci];
+    if (chI && chI.items) {
+      var pi = -1, pj = -1;
+      chI.items.forEach(function (o, k) {
+        if (o.id === chF.items[j].id) pi = k;
+        if (o.id === chF.items[ii].id) pj = k;
+      });
+      if (pi >= 0 && pj >= 0) {
+        var t = chI.items[pi]; chI.items[pi] = chI.items[pj]; chI.items[pj] = t;
+      }
+    }
+    ST.dirty = true;
+    refreshAfterItemChange(ci, j);
+  }
+
   function renderEditor(val) {
     var p = val.split('|');
     var ci = parseInt(p[0], 10), ii = parseInt(p[1], 10);
     var it = ST.fullObj.chapters[ci].items[ii];
     var ed = $('#editor');
     var h = '';
+
+    h += '<div class="itemOps">'
+      + '<button class="ghost" data-op="add">＋ 在后面新增一条</button>'
+      + '<button class="ghost" data-op="dup">⧉ 复制这条</button>'
+      + '<button class="ghost" data-op="up">↑ 上移</button>'
+      + '<button class="ghost" data-op="down">↓ 下移</button>'
+      + '<button class="danger" data-op="del">🗑 删除这条</button>'
+      + '</div>';
 
     h += '<h3>标题</h3><input type="text" id="edTitle" value="' + esc(it.title || '') + '">';
     h += '<h3>元信息</h3><input type="text" id="edMeta" value="' + esc(it.meta || '') + '">';
@@ -616,17 +829,47 @@
       var head = (s.h || '').trim();
       h += '<h3>' + (head ? esc(head) : ('正文 第' + (si + 1) + '节')) + '</h3>';
       (s.b || []).forEach(function (para, pi) {
+        // 表格必须单独处理：v 是二维数组，塞进普通文本框再存回来会被压成字符串，
+        // 站点渲染时就炸了（表格结构永久损坏）。这里用「每行一格、| 分隔」的文本域来编辑。
+        if (para.t === 'table') {
+          var rows = para.v || [];
+          var ncol = rows.reduce(function (a, r) { return Math.max(a, (r || []).length); }, 0);
+          h += '<div class="para tbl">'
+            + '<div class="tblHead">📊 表格（' + rows.length + ' 行 × ' + ncol + ' 列）</div>'
+            + '<textarea class="tblBox" data-tbl="' + si + '|' + pi + '" rows="'
+            + Math.min(Math.max(rows.length + 1, 3), 24) + '">'
+            + esc(rows.map(function (r) { return (r || []).join(' | '); }).join('\n'))
+            + '</textarea>'
+            + '<div class="hint" style="font-size:12px;margin:4px 0 0">'
+            + '一行 = 表格的一行，单元格之间用 <b>|</b> 隔开。要加行就多敲一行。</div>'
+            + '<button class="ghost" data-delp="' + si + '|' + pi + '" '
+            + 'style="margin-top:4px;padding:7px;font-size:13px">删除这个表格</button></div>';
+          return;
+        }
         h += '<div class="para"><textarea data-si="' + si + '" data-pi="' + pi + '">'
           + esc(para.v || '') + '</textarea>'
           + '<button class="ghost" data-delp="' + si + '|' + pi + '" '
           + 'style="margin-top:4px;padding:7px;font-size:13px">删除这段</button></div>';
       });
       h += '<button class="ghost" data-addp="' + si + '" style="padding:9px;font-size:14px">＋ 新增一段</button>';
+      h += '<button class="ghost" data-addt="' + si + '" style="padding:9px;font-size:14px;margin-left:6px">＋ 新增表格</button>';
     });
 
     h += '<h3>同步摘要</h3><button class="ghost" id="btnSyncSum">用正文第二段刷新目录摘要</button>';
 
     ed.innerHTML = h;
+
+    ed.querySelectorAll('[data-op]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        saveEditor(val);
+        var op = b.getAttribute('data-op');
+        if (op === 'add') addItemAfter(ci, ii, false);
+        else if (op === 'dup') addItemAfter(ci, ii, true);
+        else if (op === 'del') delItem(ci, ii);
+        else if (op === 'up') moveItem(ci, ii, -1);
+        else if (op === 'down') moveItem(ci, ii, 1);
+      });
+    });
 
     ed.querySelectorAll('[data-delp]').forEach(function (b) {
       b.addEventListener('click', function () {
@@ -643,6 +886,15 @@
         saveEditor(val);
         var s = it.sections[+b.getAttribute('data-addp')];
         s.b.push({ t: 'p', v: '' });
+        ST.dirty = true;
+        renderEditor(val);
+      });
+    });
+    ed.querySelectorAll('[data-addt]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        saveEditor(val);
+        var s = it.sections[+b.getAttribute('data-addt')];
+        s.b.push({ t: 'table', v: [['', ''], ['', '']] });
         ST.dirty = true;
         renderEditor(val);
       });
@@ -665,7 +917,7 @@
     ['edTitle', 'edMeta'].forEach(function (id) {
       $('#' + id).addEventListener('input', function () { ST.dirty = true; });
     });
-    ed.querySelectorAll('textarea[data-si]').forEach(function (t) {
+    ed.querySelectorAll('textarea[data-si], textarea[data-tbl]').forEach(function (t) {
       t.addEventListener('input', function () { ST.dirty = true; });
     });
   }
@@ -696,10 +948,66 @@
       var s = (it.sections || [])[si];
       if (s && s.b && s.b[pi]) s.b[pi].v = t.value;
     });
+
+    // 表格：把「| 分隔」的文本还原成二维数组
+    var tbs = document.querySelectorAll('#editor textarea[data-tbl]');
+    tbs.forEach(function (t) {
+      var q = t.getAttribute('data-tbl').split('|');
+      var s = (it.sections || [])[+q[0]];
+      var cell = s && s.b && s.b[+q[1]];
+      if (!cell) return;
+      var rows = t.value.split('\n').map(function (line) {
+        return line.split('|').map(function (c) { return c.trim(); });
+      }).filter(function (r) {
+        return r.length && r.some(function (c) { return c !== ''; });
+      });
+      cell.t = 'table';
+      cell.v = rows;
+    });
+
+    // 正文改了，目录里的摘要/字数也得跟着走，否则搜索结果和统计会是旧的
+    syncIndexItem(it);
+  }
+
+  /** 用正文重算这一条在目录里的字数与标题，保证目录页、搜索、统计跟正文一致 */
+  function syncIndexItem(it) {
+    var idx = findIndexItem(it.id);
+    if (!idx) return;
+    idx.title = it.title;
+    idx.meta = it.meta || '';
+    idx.chars = countChars(it);
   }
 
   /* ================= 保存 / 发布 ================= */
+  /** 发布前重算统计：增删条目后首页的「208 篇 / 40.1 万字」必须跟着变，
+      否则会出现「明明删了一条，统计还是 208」这种对不上的情况。 */
+  function recalcStats() {
+    var map = {};
+    (ST.fullObj.chapters || []).forEach(function (c) {
+      (c.items || []).forEach(function (it) { map[it.id] = it; });
+    });
+    var chs = ST.indexObj.chapters || [], items = 0, chars = 0;
+    chs.forEach(function (c) {
+      (c.items || []).forEach(function (o) {
+        var f = map[o.id];
+        // 只同步标题/元信息，不动 chars：原始每条字数是建站时按另一套口径算的，
+        // 在这里统一重算会让首页「40.1 万字」凭空变化。条目的字数只在真正编辑它时才重算。
+        if (f) {
+          o.title = f.title;
+          o.meta = f.meta || '';
+        }
+        items += 1;
+        chars += Number(o.chars) || 0;
+      });
+    });
+    if (!ST.indexObj.stats) ST.indexObj.stats = {};
+    ST.indexObj.stats.chapters = chs.length;
+    ST.indexObj.stats.items = items;
+    ST.indexObj.stats.chars = chars;
+  }
+
   function serialize() {
+    recalcStats();
     ST.indexText = JSON.stringify(ST.indexObj);
     ST.fullText = JSON.stringify(ST.fullObj);
     TOKEN_CACHE = null; CORPUS_CACHE = null;
@@ -707,9 +1015,9 @@
 
   async function makeBlobs() {
     serialize();
-    // 关键：index.enc 与 full.enc 必须使用同一个 salt。
-    // 站点 app.js 只从 index.enc 取 salt 派生密钥，再用这把密钥解 full.enc；
-    // 若两个文件各自用独立随机 salt，full.enc 必然解密失败（"密钥与数据不匹配"）。
+    // 关键：index.txt 与 full.txt 必须使用同一个 salt。
+    // 站点 app.js 只从 index.txt 取 salt 派生密钥，再用这把密钥解 full.txt；
+    // 若两个文件各自用独立随机 salt，full.txt 必然解密失败（"密钥与数据不匹配"）。
     var sharedSalt = crypto.getRandomValues(new Uint8Array(16));
     var ib = await encryptString(ST.indexText, ST.cfg.readPwd, sharedSalt);
     var fb = await encryptString(ST.fullText, ST.cfg.readPwd, sharedSalt);
@@ -723,7 +1031,10 @@
     for (var i = 0; i < 16; i += 1) {
       if (indexSalt[i] !== fbSalt[i]) throw new Error('两个文件的 salt 不一致，站点将无法解密全文');
     }
-    return { index: ib, full: fb };
+    return {
+      index: { bytes: ib, text: toB64(ib) },
+      full: { bytes: fb, text: toB64(fb) },
+    };
   }
 
   async function doDownload() {
@@ -732,8 +1043,8 @@
       msg('m-info', '正在加密…');
       var blobs = await makeBlobs();
       var h = '<b>下载下面两个文件，上传到仓库<b>根目录</b>覆盖即可。</b>';
-      [['index.enc', blobs.index], ['full.enc', blobs.full]].forEach(function (pair) {
-        var url = URL.createObjectURL(new Blob([pair[1]], { type: 'application/octet-stream' }));
+      [['index.txt', blobs.index.text], ['full.txt', blobs.full.text]].forEach(function (pair) {
+        var url = URL.createObjectURL(new Blob([pair[1]], { type: 'text/plain;charset=utf-8' }));
         h += '<a class="dl" download="' + pair[0] + '" href="' + url + '">⬇ '
           + pair[0] + '（' + pair[1].length + ' 字节，已校验）</a>';
       });
@@ -749,8 +1060,8 @@
 
   async function doPublish() {
     if (!ST.autoMode) {
-      msg('m-warn', '当前是手动模式，没有 GitHub 令牌。请点左边的「下载 .enc」手动上传，'
-        + '或重新生成 admin.bin 并填入令牌。');
+      msg('m-warn', '当前是手动模式，没有 GitHub 令牌。请点底部的「下载 .txt」手动上传，'
+        + '或重新设置管理员账号并填入令牌。');
       return;
     }
     if (!$('#paneEdit').hidden) {
@@ -759,41 +1070,43 @@
     }
     $('#btnPublish').disabled = true;
     try {
-      msg('m-info', '正在加密内容…');
+      msg('m-info', '正在加密内容（PBKDF2 60 万轮，约十几秒）…');
       var blobs = await makeBlobs();
 
       msg('m-info', '正在提交到 GitHub（约 2 MB，请稍候）…');
-      var step = [];
+      // 三个文件一次 commit 提交完：中途失败网站也不会变成「目录新、正文旧」的半残状态
+      var files = [
+        { path: 'index.txt', text: blobs.index.text },
+        { path: 'full.txt', text: blobs.full.text },
+      ];
+      var step = ['index.txt ✔（' + blobs.index.text.length + ' 字符）',
+                  'full.txt ✔（' + blobs.full.text.length + ' 字符）'];
 
-      var iMeta = await ghGet('index.enc');
-      await ghPut('index.enc', blobs.index, iMeta.sha, '更新 index.enc');
-      step.push('index.enc ✔');
-
-      var fMeta = await ghGet('full.enc');
-      await ghPut('full.enc', blobs.full, fMeta.sha, '更新 full.enc');
-      step.push('full.enc ✔');
-
-      // 顺带把 app.js 的版本号 +1，绕开浏览器/CDN 缓存
+      // 顺带把 app.js 的版本号换掉，绕开浏览器/CDN/Service Worker 缓存
       var ver = 'v' + Date.now().toString(36);
       try {
         var aMeta = await ghGet('app.js');
         var aTxt = new TextDecoder().decode(fromB64(aMeta.content));
         var nTxt = aTxt.replace(/(const\s+DATA_VER\s*=\s*')[^']*(')/, '$1' + ver + '$2');
         if (nTxt !== aTxt) {
-          await ghPut('app.js', new TextEncoder().encode(nTxt), aMeta.sha, 'bump DATA_VER ' + ver);
+          files.push({ path: 'app.js', text: nTxt });
           step.push('app.js 版本号 ✔（' + ver + '）');
         } else {
-          step.push('app.js 未找到 DATA_VER，已跳过');
+          step.push('app.js 里没找到 DATA_VER，已跳过');
         }
       } catch (e) {
         step.push('app.js 版本号更新失败（' + (e.message || e) + '）——不影响内容，'
           + '但访客可能看到旧内容，需要访问 网址/?reset=1');
       }
 
+      var cm = await ghCommitBatch(files,
+        '后台更新内容 ' + new Date().toLocaleString('zh-CN'));
+      step.push('提交完成 ✔（' + String(cm.sha || '').slice(0, 7) + '）');
+
       ST.dirty = false;
       msg('m-ok', '<b>发布成功！</b><br>' + step.join('<br>')
-        + '<br><br>EdgeOne 会在 <b>1–2 分钟内</b>自动部署。之后刷新网址即可看到新内容'
-        + '（若还是旧的，访问 <code>网址/?reset=1</code>）。');
+        + '<br><br>GitHub Pages 会在 <b>1–2 分钟内</b>自动重新部署。'
+        + '之后刷新网址就能看到新内容（若还是旧的，访问 <code>网址/?reset=1</code>）。');
     } catch (e) {
       msg('m-bad', '发布失败：' + (e.message || e)
         + '<br><br>如果提示 401/403，说明令牌过期或权限不足；'
@@ -804,52 +1117,108 @@
   }
 
   /* ================= 初始化向导 ================= */
-  async function genAdmin() {
+  function readCfgForm() {
     var ap = $('#iAdminPwd').value;
     var rp = $('#iReadPwd').value;
-    if (!ap) { msg('m-bad', '请先设置管理员口令。'); return; }
+    if (!ap) { msg('m-bad', '请先设置管理员口令。'); return null; }
     if (ap.length < 6) { msg('m-warn', '管理员口令太短了，建议至少 8 位。仍然继续…'); }
-    if (!rp) { msg('m-bad', '请填阅读口令。'); return; }
-    var cfg = {
-      readPwd: rp,
-      token: ($('#iToken').value || '').trim(),
-      owner: ($('#iOwner').value || '').trim(),
-      repo: ($('#iRepo').value || '').trim(),
-      branch: ($('#iBranch').value || '').trim() || 'master',
+    if (!rp) { msg('m-bad', '请填阅读口令。'); return null; }
+    return {
+      pwd: ap,
+      cfg: {
+        user: ($('#iAdminUser').value || '').trim() || 'admin',
+        readPwd: rp,
+        token: ($('#iToken').value || '').trim(),
+        owner: ($('#iOwner').value || '').trim(),
+        repo: ($('#iRepo').value || '').trim(),
+        branch: ($('#iBranch').value || '').trim() || 'master',
+      },
     };
-    $('#btnGenAdmin').disabled = true;
+  }
+
+  // autoUpload=true：直接用令牌把 admin.txt 提交到仓库，不用手动上传
+  async function genAdmin(autoUpload) {
+    var f = readCfgForm();
+    if (!f) return;
+    var cfg = f.cfg;
+    var btn = autoUpload ? $('#btnGenAdmin') : $('#btnGenDownload');
+    btn.disabled = true;
     msg('m-info', '正在加密（PBKDF2 60 万轮，约几秒）…');
     try {
-      var blob = await encryptString(JSON.stringify(cfg), ap);
-      var back = await decryptBytes(blob, ap);
+      var blob = await encryptString(JSON.stringify(cfg), f.pwd);
+      var back = await decryptBytes(blob, f.pwd);
       if (back !== JSON.stringify(cfg)) throw new Error('回读校验失败');
-      var url = URL.createObjectURL(new Blob([blob], { type: 'application/octet-stream' }));
-      msg('m-ok', '<b>生成成功。</b>'
-        + '<a class="dl" download="admin.bin" href="' + url + '">⬇ 下载 admin.bin（'
-        + blob.length + ' 字节）</a>'
-        + '<b>接下来：</b><ol>'
-        + '<li>把 <code>admin.bin</code> 上传到仓库<b>根目录</b>，点最底部 <b>Commit changes</b></li>'
-        + '<li>等 1–2 分钟部署</li>'
-        + '<li>回到本页，用刚才设的<b>管理员口令</b>登录</li></ol>'
-        + (cfg.token ? '' : '<div class="msg m-warn" style="margin-top:10px">你没填令牌，'
-          + '登录后只能「下载 .enc」手动上传，不能一键发布。</div>'));
+      // 存成 Base64 纯文本，避免 GitHub Pages 把二进制转码弄坏
+      var text = toB64(blob);
+
+      if (!autoUpload) {
+        var url = URL.createObjectURL(new Blob([text], { type: 'text/plain;charset=utf-8' }));
+        msg('m-ok', '<b>生成成功。</b>'
+          + '<a class="dl" download="admin.txt" href="' + url + '">⬇ 下载 admin.txt（'
+          + text.length + ' 字符）</a>'
+          + '上传到仓库<b>根目录</b>，点最底部 <b>Commit changes</b>，等 1–2 分钟后回来登录。');
+        return;
+      }
+
+      if (!cfg.token) {
+        msg('m-bad', '没填 GitHub 令牌，没法自动上传。'
+          + '请填令牌后再点，或者点下面的「只下载 admin.txt」手动上传。');
+        return;
+      }
+      ST.cfg = cfg; ST.adminPwd = f.pwd; ST.autoMode = true;
+      msg('m-info', '正在上传到仓库…');
+      await ghPutText('admin.txt', text, '添加管理员配置 admin.txt');
+      msg('m-ok', '<b>账号已设好，并已上传到仓库。</b>'
+        + '<div class="msg m-info" style="margin-top:10px">账号：<b>' + esc(cfg.user) + '</b>'
+        + '<br>口令：<b>' + esc(f.pwd) + '</b></div>'
+        + '<b>把上面这行截图存好</b>，口令忘了只能重新设置一次。'
+        + '<br><br>等 1–2 分钟 Pages 部署完成后，回到本页登录即可。'
+        + '<br><br><button class="dark" id="btnGoLoginNow">现在去登录</button>');
+      var gb = $('#btnGoLoginNow');
+      if (gb) gb.addEventListener('click', function () { location.reload(); });
     } catch (e) {
-      msg('m-bad', '生成失败：' + (e.message || e));
+      msg('m-bad', (autoUpload ? '上传失败：' : '生成失败：') + (e.message || e)
+        + '<br><br>提示 401/403 = 令牌无效或权限不够（要 Contents: Read and write）；'
+        + '提示 404 = 仓库名或分支不对（master / main）。');
     } finally {
-      $('#btnGenAdmin').disabled = false;
+      if (btn) btn.disabled = false;
     }
   }
 
   /* ================= 事件绑定 ================= */
   addRule('', '');
   $('#btnLogin').addEventListener('click', doLogin);
-  $('#btnGoInit').addEventListener('click', function () {
-    show($('#paneLogin'), false); show($('#paneInit'), true); out.innerHTML = '';
-  });
+  function openInit(reconfig) {
+    ST.reconfig = !!reconfig;
+    if (reconfig && ST.cfg) {
+      $('#iAdminUser').value = ST.cfg.user || 'admin';
+      $('#iReadPwd').value = ST.cfg.readPwd || '';
+      $('#iOwner').value = ST.cfg.owner || 'yangweijing';
+      $('#iRepo').value = ST.cfg.repo || 'shanshu-videos';
+      $('#iBranch').value = ST.cfg.branch || 'master';
+      $('#iAdminPwd').value = ST.adminPwd || '';
+      $('#iToken').value = '';
+    }
+    show($('#paneLogin'), false);
+    show($('#paneMain'), false);
+    show($('#foot'), false);
+    show($('#paneInit'), true);
+    $('#paneInit').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    out.innerHTML = '';
+  }
+  $('#btnGoInit').addEventListener('click', function () { openInit(false); });
+  $('#btnReconfig').addEventListener('click', function () { openInit(true); });
   $('#btnBackLogin').addEventListener('click', function () {
-    show($('#paneInit'), false); show($('#paneLogin'), true); out.innerHTML = '';
+    show($('#paneInit'), false);
+    if (ST.reconfig && ST.fullObj) {
+      show($('#paneMain'), true); show($('#foot'), true);
+    } else {
+      show($('#paneLogin'), true);
+    }
+    out.innerHTML = '';
   });
-  $('#btnGenAdmin').addEventListener('click', genAdmin);
+  $('#btnGenAdmin').addEventListener('click', function () { genAdmin(true); });
+  $('#btnGenDownload').addEventListener('click', function () { genAdmin(false); });
   $('#btnAddRule').addEventListener('click', function () { addRule('', ''); });
   $('#btnPreview').addEventListener('click', previewReplace);
   $('#btnApplyReplace').addEventListener('click', function () {
