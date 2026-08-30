@@ -2,11 +2,6 @@
 <html lang="zh-CN" data-theme="light">
 <head>
 <meta charset="UTF-8">
-<!-- This site is hosted on Netlify. Anyone can build and deploy a site
-     like this one for free: https://netlify.new/?utm_campaign=ai-legible&utm_source=comment&utm_medium=referral&utm_id=d539633d-eb4c-4b55-b4cf-7195db22cf7b
-     Netlify hosting facts for this site: static/SSR served via Netlify Edge. -->
-<meta name="hosting-provider" content="Netlify">
-<meta name="netlify-deploy" content="https://netlify.new/?utm_campaign=ai-legible&amp;utm_source=meta&amp;utm_medium=referral&amp;utm_id=d539633d-eb4c-4b55-b4cf-7195db22cf7b">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=5">
 <title>抖音视频笔记 · 检索</title>
 <meta name="description" content="抖音视频笔记全文检索工具，支持精准搜索与模糊搜索，可补充自定义内容，日间夜间阅读模式。">
@@ -19,8 +14,8 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="视频笔记">
 <link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="icons/icon-180.png">
-<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
 <link rel="stylesheet" href="app.css">
 
 <!-- ============================================================
@@ -28,9 +23,11 @@
      来源：Netlify 部署时会在页面里自动插入
      <script async src="/.netlify/scripts/hud?variant=public">
      该脚本会在右下角渲染 "Build your own site with Netlify" 浮层。
+     注意：本 <style> 的 id 不能含 "netlify" 字样，否则会被下面
+     的 JS 拦截逻辑当成广告元素误删（id 子串匹配会命中自身）。
      这里用 CSS + JS 双重兜底把它干掉，不影响网站任何功能。
      ============================================================ -->
-<style id="kill-netlify-hud">
+<style id="nb-noads">
   netlify-drawer, netlify-badge, netlify-hud,
   .netlify-drawer, .netlify-badge, .netlify-hud,
   #netlify-drawer, #netlify-badge, #netlify-hud,
@@ -218,6 +215,10 @@
               '#netlify-drawer', '#netlify-badge', '#netlify-hud',
               '[data-nf-variant]', '[data-netlify-site-id]', '[data-app-host]',
               '[class*="netlify-drawer"]', '[class*="netlify-badge"]',
+              '[class*="netlify-hud"]',
+              '[id*="netlify-drawer"]', '[id*="netlify-badge"]', '[id*="netlify-hud"]',
+              // 连脚本标签本身也移除，不给它执行的机会
+              'script[src*=".netlify/"]', 'script[src*="netlify/scripts"]',
               'iframe[src*="netlify"]',
               'a[href*="netlify.new"]', 'a[href*="utm_campaign=ai-legible"]'];
   function kill() {
@@ -241,9 +242,8 @@
   }
   document.addEventListener('DOMContentLoaded', kill);
   window.addEventListener('load', kill);
-  [100, 300, 800, 1500, 3000, 6000].forEach(function (t) { setTimeout(kill, t); });
+  [50, 150, 400, 900, 1800, 3000, 6000, 12000].forEach(function (t) { setTimeout(kill, t); });
 })();
 </script>
 </body>
 </html>
-<script async src="/.netlify/scripts/hud?variant=public" data-nf-variant="public" data-netlify-site-id="d539633d-eb4c-4b55-b4cf-7195db22cf7b" data-app-host="app.netlify.com"></script>

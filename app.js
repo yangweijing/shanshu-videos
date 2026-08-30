@@ -247,12 +247,12 @@ const REMEMBER_DAYS = 30;
 
 const LOCK = {
   key: null,       // 当前会话的 CryptoKey（不可导出）
-  encIndex: null,  // data/index.enc 字节
-  encFull: null,   // data/full.enc 字节
+  encIndex: null,  // index.enc 字节
+  encFull: null,   // full.enc 字节
   busy: false,
 };
 
-/* 内容版本号：每次更换 data/ 里的 .enc 后，把下面这行的值改一下（比如 v2、v3），
+/* 内容版本号：每次更换根目录的 .enc 后，把下面这行的值改一下（比如 v2、v3），
    所有访客就会立刻拉到新文件，不会被浏览器缓存 / CDN 缓存 / Service Worker 挡住。 */
 const DATA_VER = 'v3';
 
@@ -266,10 +266,10 @@ async function fetchBytes(url) {
 
 /** 拉取密文：index 先到（含 salt），full 后台并行下载不阻塞解锁界面 */
 async function fetchCipher() {
-  const pFull = fetchBytes('data/full.enc')
+  const pFull = fetchBytes('full.enc')
     .then((b) => { LOCK.encFull = b; })
     .catch(() => { LOCK.encFull = null; });
-  LOCK.encIndex = await fetchBytes('data/index.enc');
+  LOCK.encIndex = await fetchBytes('index.enc');
   return pFull;
 }
 
@@ -325,7 +325,7 @@ async function afterUnlock() {
         full = await decryptJSON(LOCK.encFull, LOCK.key);
       } else {
         // 首次进入时全文可能还在下载，补拉一次
-        LOCK.encFull = await fetchBytes('data/full.enc');
+        LOCK.encFull = await fetchBytes('full.enc');
         full = await decryptJSON(LOCK.encFull, LOCK.key);
       }
       buildDocs(full);
@@ -431,7 +431,8 @@ function buildDocs(full) {
       const parts = [it.no, it.title, it.meta];
       const sections = (it.sections || []).map((s) => ({
         h: s.h || '',
-        b: (s.b || []).map((b) => ({ t: b.t, v: b.v })),
+        // 表格的列宽 w 必须一起带上，否则渲染时拿不到 Word 里调好的比例
+        b: (s.b || []).map((b) => (Array.isArray(b.w) ? { t: b.t, v: b.v, w: b.w } : { t: b.t, v: b.v })),
       }));
       sections.forEach((s) => {
         if (s.h) parts.push(s.h);

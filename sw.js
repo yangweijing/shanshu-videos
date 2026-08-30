@@ -6,10 +6,10 @@ const SHELL = [
   './app.css',
   './app.js',
   './manifest.json',
-  './icons/icon-192.png',
-  './icons/icon-512.png',
-  './data/index.enc',
-  './data/full.enc',
+  './icon-192.png',
+  './icon-512.png',
+  './index.enc',
+  './full.enc',
 ];
 
 self.addEventListener('install', (e) => {
