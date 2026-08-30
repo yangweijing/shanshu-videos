@@ -388,6 +388,13 @@ mark {
 }
 
 .extraTools { display: flex; gap: 8px; margin-bottom: 16px; }
+/* 后台入口：混在「导出/导入备份」旁边，做成不起眼的小字，不告诉别人它是干嘛的 */
+.adminEntry { display: inline-flex; align-items: center; text-decoration: none;
+  font-size: 12px; padding: 9px 12px; color: var(--text-faint);
+  background: transparent; opacity: .75; }
+.adminEntry:active { opacity: 1; }
+.adminEntry:focus-visible { outline: 2px solid var(--accent, #4a90d9); outline-offset: 2px; }
+:root[data-theme="dark"] .adminEntry { color: var(--text-faint); }
 .extraList { display: flex; flex-direction: column; gap: 10px; }
 
 .extraItem {
@@ -715,9 +722,6 @@ mark {
 
 .lockTip { margin: 20px 0 0; color: var(--text-faint); font-size: 12px; line-height: 1.65; }
 /* 后台入口：做成不抢眼的小字/小图标，不干扰正常阅读 */
-.lockAdmin { margin: 14px 0 0; font-size: 12px; }
-.lockAdmin a { color: var(--text-faint); text-decoration: none;
-  border-bottom: 1px dashed var(--text-faint); padding-bottom: 1px; }
+.lockAdmin { margin: 14px 0 0; font-size: 12px; opacity: .7; }
+.lockAdmin a { color: var(--text-faint); text-decoration: none; }
 .lockAdmin a:focus-visible { outline: 2px solid var(--accent, #4a90d9); outline-offset: 3px; }
-a.iconBtn { display: inline-flex; align-items: center; justify-content: center;
-  text-decoration: none; }

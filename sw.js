@@ -1,5 +1,5 @@
 /* Service Worker：离线缓存，安装后无需联网即可搜索全部笔记 */
-const VER = 'v4-txt';
+const VER = 'v5-txt';
 const SHELL = [
   './',
   './index.html',
