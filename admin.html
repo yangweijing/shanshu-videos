@@ -54,6 +54,12 @@
   .m-bad{background:#fdecec;color:#8a1c1c}
   .m-warn{background:#fff6e5;color:#7a4400}
   .m-info{background:#eaf2fd;color:#12467d}
+  .sug{margin-top:10px;padding:10px;border-radius:9px;background:#fff6e5;color:#7a4400;font-size:13.5px}
+  .sug b{color:#8a3b00}
+  .chips{margin-top:8px;display:flex;flex-wrap:wrap;gap:6px}
+  button.mini{padding:6px 10px;font-size:13px;border-radius:999px;border:1px solid #d9a441;
+    background:#fff;color:#7a4400;cursor:pointer;line-height:1.3}
+  button.mini:active{background:#f4e2c0}
   a.dl{display:block;padding:12px;margin:8px 0;background:#eaf2fd;color:#12467d;
     border-radius:9px;text-decoration:none;font-weight:600;text-align:center;font-size:15px}
   ol,ul{padding-left:20px;margin:8px 0 0}
@@ -385,21 +391,122 @@
   }
   function getRules() {
     var rs = [];
-    document.querySelectorAll('#rules .rule').forEach(function (r) {
+    document.querySelectorAll('#rules .rule').forEach(function (r, ri) {
       var f = r.querySelector('.from').value, t = r.querySelector('.to').value;
-      if (f !== '') rs.push({ from: f, to: t });
+      if (f !== '') rs.push({ from: f, to: t, ri: ri });
     });
     return rs;
   }
   function cnt(s, sub) { return sub ? s.split(sub).length - 1 : 0; }
 
+  /* ---------- 找不到时的智能推荐 ----------
+     用户手打的词经常和数据里的真实写法差一点点（多了几个冒号、全角半角、
+     首尾空格）。这里做三层兜底：精确 → 归一化变体 → 同字真实词推荐。 */
+  var TOKEN_CACHE = null, CORPUS_CACHE = null;
+  // 只递归取 JSON 里的「字符串值」当正文语料，
+  // 避免把 meta / table / summary 这些字段名当成正文推荐给用户。
+  function textCorpus() {
+    if (CORPUS_CACHE) return CORPUS_CACHE;
+    var buf = [];
+    function walk(v) {
+      if (typeof v === 'string') { buf.push(v, '\n'); return; }
+      if (v && typeof v === 'object') {
+        if (Array.isArray(v)) { v.forEach(walk); return; }
+        Object.keys(v).forEach(function (k) { walk(v[k]); });
+      }
+    }
+    try {
+      walk(ST.indexObj || JSON.parse(ST.indexText));
+      walk(ST.fullObj || JSON.parse(ST.fullText));
+    } catch (e) { buf.push(ST.indexText, '\n', ST.fullText); }
+    CORPUS_CACHE = buf.join('');
+    return CORPUS_CACHE;
+  }
+  function allTokens() {
+    if (TOKEN_CACHE) return TOKEN_CACHE;
+    var m = {}, re = /[\u4e00-\u9fa5A-Za-z0-9]+/g, t, s = textCorpus();
+    while ((t = re.exec(s)) !== null) m[t[0]] = (m[t[0]] || 0) + 1;
+    TOKEN_CACHE = m;
+    return m;
+  }
+  // 归一化候选：trim / 折叠连续重复标点 / 全角半角互转 / 去掉尾部冒号
+  function normVariants(from) {
+    var vs = [], raw = from || '';
+    function push(x) { if (x && x !== raw && vs.indexOf(x) < 0) vs.push(x); }
+    var t = raw.replace(/^[\s\u3000]+|[\s\u3000]+$/g, '');
+    push(t);
+    push(t.replace(/([\uFF1A:,.!?;；，。！？、·—-])\1+/g, '$1'));
+    push(t.replace(/:/g, '\uFF1A').replace(/,/g, '\uFF0C').replace(/\./g, '\u3002'));
+    push(t.replace(/\uFF1A/g, ':').replace(/\uFF0C/g, ',').replace(/\u3002/g, '.'));
+    push(t.replace(/[\uFF1A:]+$/g, ''));
+    push(t.replace(/[\uFF1A:]+$/g, '').replace(/([\uFF1A:,.!?;；，。！？、])\1+/g, '$1'));
+    return vs;
+  }
+  function suggestFor(from) {
+    var vs = normVariants(from), i, n;
+    for (i = 0; i < vs.length; i += 1) {
+      n = cnt(ST.indexText, vs[i]) + cnt(ST.fullText, vs[i]);
+      if (n > 0) return { kind: 'variant', word: vs[i], n: n, from: from };
+    }
+    var core = (from || '').replace(/[\s\u3000]/g, '')
+      .replace(/[^\u4e00-\u9fa5A-Za-z0-9]/g, '');
+    var toks = allTokens(), keys = Object.keys(toks), cand = [];
+    function collect(sub) {
+      if (!sub) return [];
+      var lc = sub.toLowerCase(), r = [];
+      keys.forEach(function (k) { if (k.toLowerCase().indexOf(lc) >= 0) r.push(k); });
+      return r;
+    }
+    cand = collect(core);
+    var loose = false;
+    // 整词匹配不到才放宽到「前两字 / 后两字」，但要求至少出现 3 次，
+    // 否则会把一次性口误词推给用户，越推越乱。
+    if (!cand.length && core.length >= 2) {
+      loose = true;
+      cand = collect(core.slice(0, 2)).concat(collect(core.slice(-2)));
+      cand = cand.filter(function (k) { return toks[k] >= 3; });
+    }
+    if (!cand.length) return { kind: 'none', from: from };
+    cand.sort(function (a, b) { return toks[b] - toks[a]; });
+    return {
+      kind: 'tokens', from: from, loose: loose,
+      words: cand.slice(0, 8).map(function (w) { return { w: w, n: toks[w] }; })
+    };
+  }
+  function suggestHtml(sg, ri) {
+    if (!sg) return '';
+    var h = '<div class="sug">';
+    if (sg.kind === 'none') {
+      h += '数据里确实<b>没有</b>「' + esc(sg.from) + '」这几个字，'
+        + '连相近的词都没有。请确认字没打错；'
+        + '也可以先只填<b>两个字</b>（比如只填「山术」）再预演，命中率更高。';
+    } else if (sg.kind === 'variant') {
+      h += '数据里没有「' + esc(sg.from) + '」，但有 <b>' + esc(sg.word) + '</b>（'
+        + sg.n + ' 处）——多半是标点或空格打多了。'
+        + '<div class="chips"><button class="mini" data-use="' + esc(sg.word)
+        + '" data-ri="' + ri + '">改用「' + esc(sg.word) + '」</button></div>';
+    } else {
+      h += '数据里没有「' + esc(sg.from) + '」。'
+        + (sg.loose ? '相近的' : '带这些字的') + '<b>真实原文</b>有这些，点一下直接填进左边：'
+        + '<div class="chips">';
+      sg.words.forEach(function (o) {
+        h += '<button class="mini" data-use="' + esc(o.w) + '" data-ri="' + ri + '">'
+          + esc(o.w) + '（' + o.n + '）</button>';
+      });
+      h += '</div>';
+    }
+    h += '</div>';
+    return h;
+  }
+
   function applyRulesToAll() {
     var rules = getRules();
     if (!rules.length) { msg('m-bad', '至少填一行替换规则（左边不能空）。'); return null; }
-    var log = [];
+    var log = [], missed = [];
     var a = ST.indexText, b = ST.fullText;
     rules.forEach(function (r) {
       var n = cnt(a, r.from) + cnt(b, r.from);
+      if (n === 0) { missed.push(r); return; }
       a = a.split(r.from).join(r.to);
       b = b.split(r.from).join(r.to);
       // 新词若包含原词（如「山术」→「小道山术」），会把计数带回来，需扣掉，否则「剩余」虚高
@@ -407,6 +514,12 @@
       var left = Math.max(0, cnt(a, r.from) + cnt(b, r.from) - selfBack);
       log.push({ from: r.from, to: r.to, n: n, left: left });
     });
+    if (!log.length) {
+      var h = '<b>一条都没匹配上，内容没动。</b>';
+      missed.forEach(function (r) { h += suggestHtml(suggestFor(r.from), r.ri); });
+      msg('m-warn', h);
+      return null;
+    }
     try {
       ST.indexObj = JSON.parse(a);
       ST.fullObj = JSON.parse(b);
@@ -416,6 +529,8 @@
       return null;
     }
     ST.indexText = a; ST.fullText = b; ST.dirty = true;
+    TOKEN_CACHE = null; CORPUS_CACHE = null;
+    ST.lastMissed = missed;
     return log;
   }
 
@@ -423,14 +538,17 @@
     var rules = getRules();
     if (!rules.length) { msg('m-bad', '至少填一行替换规则。'); return; }
     var h = '<b>预演结果（还没真的改）</b><table>';
+    var sug = '';
     rules.forEach(function (r) {
       var n = cnt(ST.indexText, r.from) + cnt(ST.fullText, r.from);
       h += '<tr><th>「' + r.from + '」→「' + r.to + '」</th><td>'
         + (n > 0 ? '<span class="ok">找到 ' + n + ' 处</span>' : '<span class="warn">没找到</span>')
         + '</td></tr>';
+      if (n === 0) sug += suggestHtml(suggestFor(r.from), r.ri);
     });
-    h += '</table><br>确认无误后点底部的<b>保存并发布</b>。';
-    msg('m-info', h);
+    h += '</table><br>' + (sug ? '先按下面的提示把左边改成真实存在的原文，再执行替换。'
+      : '确认无误后点<b>✅ 执行替换</b>，然后点底部的<b>保存并发布</b>。');
+    msg(sug ? 'm-warn' : 'm-info', h + sug);
   }
 
   /* ================= 单条编辑 ================= */
@@ -584,6 +702,7 @@
   function serialize() {
     ST.indexText = JSON.stringify(ST.indexObj);
     ST.fullText = JSON.stringify(ST.fullObj);
+    TOKEN_CACHE = null; CORPUS_CACHE = null;
   }
 
   async function makeBlobs() {
@@ -737,12 +856,29 @@
     var log = applyRulesToAll();
     if (!log) return;
     var h = '<b>替换已执行（内存中已改，还没发布）</b><table>';
-    log.forEach(function (r) { h += '<tr><th>' + r.from + ' → ' + r.to
-      + '</th><td class="ok">替换 ' + r.n + ' 处</td></tr>'; });
+    log.forEach(function (r) {
+      h += '<tr><th>' + esc(r.from) + ' → ' + esc(r.to) + '</th><td class="ok">替换 '
+        + r.n + ' 处' + (r.left > 0 ? '，还剩 ' + r.left + ' 处' : '') + '</td></tr>';
+    });
     h += '</table><br>点底部的<b>保存并发布</b>推送到 GitHub。';
+    var missed = ST.lastMissed || [];
+    if (missed.length) {
+      h += '<div class="sug">有 ' + missed.length + ' 行没匹配上，已跳过：';
+      missed.forEach(function (r) { h += suggestHtml(suggestFor(r.from), r.ri); });
+      h += '</div>';
+    }
     msg('m-ok', h);
-    // 刷新预览区显示当前状态
-    previewReplace();
+  });
+
+  // 推荐词「一键采用」：把真实原文填回对应的查找框
+  out.addEventListener('click', function (e) {
+    var b = e.target.closest ? e.target.closest('[data-use]') : null;
+    if (!b) return;
+    var rows = document.querySelectorAll('#rules .rule');
+    var row = rows[parseInt(b.getAttribute('data-ri'), 10)];
+    if (!row) return;
+    row.querySelector('.from').value = b.getAttribute('data-use');
+    msg('m-info', '已填好，点 <b>🔍 预演</b> 看能替换多少处。');
   });
   $('#btnDownload').addEventListener('click', doDownload);
   $('#btnPublish').addEventListener('click', doPublish);

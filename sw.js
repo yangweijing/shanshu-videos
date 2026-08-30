@@ -1,5 +1,5 @@
 /* Service Worker：离线缓存，安装后无需联网即可搜索全部笔记 */
-const VER = 'v2-enc';
+const VER = 'v3-enc';
 const SHELL = [
   './',
   './index.html',
@@ -38,29 +38,17 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
 
-  // 页面：网络优先，失败回落缓存，保证能拿到新版本
-  if (req.mode === 'navigate') {
-    e.respondWith(
-      fetch(req).then((r) => {
-        const copy = r.clone();
-        caches.open('notes-shell-' + VER).then((c) => c.put('./index.html', copy));
-        return r;
-      }).catch(() => caches.match('./index.html').then((r) => r || caches.match('./')))
-    );
-    return;
-  }
-
-  // 静态资源与数据：缓存优先，后台更新
+  // 网络优先：在线时一律拿服务器上的最新版本，断网时才回落到缓存。
+  // 这样站点文件一更新，访客刷新就能看到新内容，不用手动清缓存。
   e.respondWith(
-    caches.match(req).then((hit) => {
-      const net = fetch(req).then((r) => {
+    fetch(req)
+      .then((r) => {
         if (r && r.ok) {
           const copy = r.clone();
           caches.open('notes-shell-' + VER).then((c) => c.put(req, copy));
         }
         return r;
-      }).catch(() => hit);
-      return hit || net;
-    })
+      })
+      .catch(() => caches.match(req).then((hit) => hit || caches.match('./index.html')))
   );
 });
