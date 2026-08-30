@@ -254,7 +254,7 @@ const LOCK = {
 
 /* 内容版本号：每次更换 data/ 里的 .enc 后，把下面这行的值改一下（比如 v2、v3），
    所有访客就会立刻拉到新文件，不会被浏览器缓存 / CDN 缓存 / Service Worker 挡住。 */
-const DATA_VER = 'vmtf4hfv3';
+const DATA_VER = 'vmtf4riua';
 
 async function fetchBytes(url) {
   const sep = url.indexOf('?') === -1 ? '?' : '&';
