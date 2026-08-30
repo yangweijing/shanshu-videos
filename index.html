@@ -35,7 +35,10 @@
   .netlify-drawer, .netlify-badge, .netlify-hud,
   #netlify-drawer, #netlify-badge, #netlify-hud,
   [class*="netlify-drawer"], [class*="netlify-badge"],
-  [data-nf-variant],
+  [data-nf-variant], [data-netlify-site-id], [data-app-host],
+  [class*="netlify-drawer"], [class*="netlify-badge"], [class*="netlify-hud"],
+  [id*="netlify-drawer"], [id*="netlify-badge"], [id*="netlify-hud"],
+  iframe[src*="netlify"], iframe[src*="app.netlify.com"],
   a[href*="netlify.new"],
   a[href*="utm_campaign=ai-legible"] {
     display: none !important;
@@ -213,18 +216,32 @@
   var SELS = ['netlify-drawer', 'netlify-badge', 'netlify-hud',
               '.netlify-drawer', '.netlify-badge', '.netlify-hud',
               '#netlify-drawer', '#netlify-badge', '#netlify-hud',
-              '[data-nf-variant]'];
+              '[data-nf-variant]', '[data-netlify-site-id]', '[data-app-host]',
+              '[class*="netlify-drawer"]', '[class*="netlify-badge"]',
+              'iframe[src*="netlify"]',
+              'a[href*="netlify.new"]', 'a[href*="utm_campaign=ai-legible"]'];
   function kill() {
     for (var i = 0; i < SELS.length; i += 1) {
-      var list = document.querySelectorAll(SELS[i]);
+      var list;
+      try { list = document.querySelectorAll(SELS[i]); } catch (e) { continue; }
       for (var j = 0; j < list.length; j += 1) {
-        if (list[j].parentNode) { list[j].parentNode.removeChild(list[j]); }
+        var el = list[j];
+        if (el && el.parentNode) { el.parentNode.removeChild(el); }
       }
     }
   }
+  // 关键：Netlify 的 HUD 是页面加载后才异步渲染的，光靠定时器会漏。
+  // 这里挂 MutationObserver，DOM 一有新增就立刻清一遍。
+  if (window.MutationObserver) {
+    var mo = new MutationObserver(kill);
+    mo.observe(document.documentElement, { childList: true, subtree: true });
+    document.addEventListener('DOMContentLoaded', function () {
+      mo.observe(document.body, { childList: true, subtree: true });
+    });
+  }
   document.addEventListener('DOMContentLoaded', kill);
   window.addEventListener('load', kill);
-  [300, 1000, 3000].forEach(function (t) { setTimeout(kill, t); });
+  [100, 300, 800, 1500, 3000, 6000].forEach(function (t) { setTimeout(kill, t); });
 })();
 </script>
 </body>
