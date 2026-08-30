@@ -254,7 +254,7 @@ const LOCK = {
 
 /* 内容版本号：每次更换 data/ 里的 .enc 后，把下面这行的值改一下（比如 v2、v3），
    所有访客就会立刻拉到新文件，不会被浏览器缓存 / CDN 缓存 / Service Worker 挡住。 */
-const DATA_VER = 'vmtf4riua';
+const DATA_VER = 'v3';
 
 async function fetchBytes(url) {
   const sep = url.indexOf('?') === -1 ? '?' : '&';
@@ -870,7 +870,20 @@ function openReader(idx, q) {
         } else if (b.t === 'table') {
           const rows = b.v || [];
           if (!rows.length) return;
-          html += '<div class="tblWrap"><table><tbody>';
+          // 列宽：优先用数据里带的 w（从 Word 表格列宽换算的百分比）
+          const ncol = rows.reduce((m, r) => Math.max(m, (r || []).length), 0);
+          const wArr = Array.isArray(b.w) && b.w.length === ncol ? b.w : null;
+          // 第一列全是短标签（≤6 字）时才禁止换行；长文本必须允许换行，否则会被撑爆
+          const narrowFirst = rows.every((r) => !r || !r[0] || String(r[0]).length <= 6);
+          const minW = ncol <= 2 ? 300 : (ncol === 3 ? 420 : 520);
+          html += '<div class="tblWrap"><table'
+            + (wArr ? ' class="tblFixed"' : '')
+            + (narrowFirst ? ' data-narrowfirst="1"' : '')
+            + ' style="min-width:' + minW + 'px">'
+            + (wArr ? '<colgroup>'
+                + wArr.map((p) => '<col style="width:' + p + '%">').join('')
+                + '</colgroup>' : '')
+            + '<tbody>';
           rows.forEach((row, ri) => {
             html += '<tr>';
             (row || []).forEach((cell) => {

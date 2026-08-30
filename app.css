@@ -505,7 +505,11 @@ mark {
 }
 .readerBody tr:last-child td { border-bottom: 0; }
 .readerBody th { background: var(--bg-sunk); font-weight: 600; }
-.readerBody td:first-child { color: var(--accent); font-weight: 600; white-space: nowrap; }
+.readerBody td:first-child { color: var(--accent); font-weight: 600; }
+/* 只有第一列确实是短标签时才禁止换行（由 app.js 打上 data-narrowfirst） */
+.readerBody table[data-narrowfirst] td:first-child { white-space: nowrap; }
+/* 按 colgroup 的百分比固定列宽，让 Word 里调好的比例原样呈现 */
+.readerBody table.tblFixed { table-layout: fixed; }
 
 .readerFoot {
   display: flex;
