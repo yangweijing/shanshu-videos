@@ -254,27 +254,48 @@ const LOCK = {
 
 /* 内容版本号：每次更换根目录的 .enc 后，把下面这行的值改一下（比如 v2、v3），
    所有访客就会立刻拉到新文件，不会被浏览器缓存 / CDN 缓存 / Service Worker 挡住。 */
-const DATA_VER = 'v3';
+const DATA_VER = 'v4';
+
+/* 密文用 Base64 纯文本保存（index.txt / full.txt）。
+   原因：GitHub Pages 等平台会把二进制文件当文本做字符集转换，
+   非法 UTF-8 字节会被替换掉，加密数据因此损坏。
+   Base64 全是 ASCII 字符，任何平台的任何转换都破坏不了它。 */
+function b64ToBytes(b64) {
+  const clean = b64.replace(/\s+/g, '');
+  const bin = atob(clean);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
 
 async function fetchBytes(url) {
   const sep = url.indexOf('?') === -1 ? '?' : '&';
   // 带版本号查询串 => 新 URL => 缓存里必然没有，直接取新文件
   const r = await fetch(url + sep + 'v=' + DATA_VER, { cache: 'no-cache' });
   if (!r.ok) throw new Error('HTTP ' + r.status + ' ' + url);
+
+  if (/\.txt$/i.test(url.split('?')[0])) {
+    // Base64 文本通道
+    const s = await r.text();
+    if (s.length < 64) throw new Error('密文文本异常：只有 ' + s.length + ' 字符');
+    const bytes = b64ToBytes(s);
+    if (bytes.length < 32) throw new Error('密文解码后过短：' + bytes.length + ' 字节');
+    return bytes;
+  }
+
   const buf = await r.arrayBuffer();
   if (buf.byteLength < 32) {
-    // QQ 浏览器等会把二进制文件转码成文本，导致字节被截断
-    throw new Error('文件截断：' + buf.byteLength + ' 字节（应为 >32），浏览器可能拦截了二进制下载。请换 Chrome/Safari 或关闭省流量模式。');
+    throw new Error('文件截断：' + buf.byteLength + ' 字节（二进制文件可能被平台转码）');
   }
   return u8(buf);
 }
 
 /** 拉取密文：index 先到（含 salt），full 后台并行下载不阻塞解锁界面 */
 async function fetchCipher() {
-  const pFull = fetchBytes('full.bin')
+  const pFull = fetchBytes('full.txt')
     .then((b) => { LOCK.encFull = b; })
     .catch(() => { LOCK.encFull = null; });
-  LOCK.encIndex = await fetchBytes('index.bin');
+  LOCK.encIndex = await fetchBytes('index.txt');
   return pFull;
 }
 
@@ -330,7 +351,7 @@ async function afterUnlock() {
         full = await decryptJSON(LOCK.encFull, LOCK.key);
       } else {
         // 首次进入时全文可能还在下载，补拉一次
-        LOCK.encFull = await fetchBytes('full.bin');
+        LOCK.encFull = await fetchBytes('full.txt');
         full = await decryptJSON(LOCK.encFull, LOCK.key);
       }
       buildDocs(full);
