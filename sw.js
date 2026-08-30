@@ -8,8 +8,8 @@ const SHELL = [
   './manifest.json',
   './icon-192.png',
   './icon-512.png',
-  './index.enc',
-  './full.enc',
+  './index.bin',
+  './full.bin',
 ];
 
 self.addEventListener('install', (e) => {

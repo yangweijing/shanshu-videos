@@ -117,7 +117,7 @@
 <!-- ============ 初始化向导 ============ -->
 <div class="card" id="paneInit" hidden>
   <h2>生成管理员配置（admin.bin）</h2>
-  <p class="hint" style="margin-bottom:0">这个文件里存的是<b>加密后的</b> GitHub 令牌和阅读口令，用你设的管理员口令加密。生成后上传到仓库 <code>data/</code> 目录即可。</p>
+  <p class="hint" style="margin-bottom:0">这个文件里存的是<b>加密后的</b> GitHub 令牌和阅读口令，用你设的管理员口令加密。生成后上传到仓库<b>根目录</b>即可。</p>
 
   <h3>1. 设置管理员口令</h3>
   <input type="password" id="iAdminPwd" placeholder="建议 8 位以上，字母+数字" autocomplete="new-password">
@@ -310,13 +310,13 @@
     try {
       var cfg = null, autoMode = false;
       try {
-        var bin = await fetchBytes('data/admin.bin');
+        var bin = await fetchBytes('admin.bin');
         var txt = await decryptBytes(bin, pwd);
         cfg = JSON.parse(txt);
         autoMode = !!(cfg && cfg.token);
       } catch (e) {
         if (e && /HTTP 404/.test(e.message)) {
-          msg('m-warn', '服务器上还没有 <code>data/admin.bin</code>。'
+          msg('m-warn', '服务器上还没有 <code>admin.bin</code>。'
             + '走自动发布需要先生成并上传它；或者点「下载 .enc」用手动模式。'
             + '<br><br>要用<b>手动模式</b>，请在这里填<b>阅读口令</b>再点登录：'
             + '<input type="password" id="manualPwd" style="margin-top:8px" placeholder="阅读口令">'
@@ -353,11 +353,11 @@
 
     msg('m-info', '正在解密内容，需要几十秒（PBKDF2 60 万轮 × 大文件）…');
     try {
-      var ib = await fetchBytes('data/index.enc');
+      var ib = await fetchBytes('index.enc');
       ST.indexText = await decryptBytes(ib, ST.cfg.readPwd);
       ST.indexObj = JSON.parse(ST.indexText);
 
-      var fb = await fetchBytes('data/full.enc');
+      var fb = await fetchBytes('full.enc');
       ST.fullText = await decryptBytes(fb, ST.cfg.readPwd);
       ST.fullObj = JSON.parse(ST.fullText);
     } catch (e) {
@@ -731,7 +731,7 @@
       $('#btnDownload').disabled = true;
       msg('m-info', '正在加密…');
       var blobs = await makeBlobs();
-      var h = '<b>下载下面两个文件，上传到仓库 data/ 目录覆盖即可。</b>';
+      var h = '<b>下载下面两个文件，上传到仓库<b>根目录</b>覆盖即可。</b>';
       [['index.enc', blobs.index], ['full.enc', blobs.full]].forEach(function (pair) {
         var url = URL.createObjectURL(new Blob([pair[1]], { type: 'application/octet-stream' }));
         h += '<a class="dl" download="' + pair[0] + '" href="' + url + '">⬇ '
@@ -765,12 +765,12 @@
       msg('m-info', '正在提交到 GitHub（约 2 MB，请稍候）…');
       var step = [];
 
-      var iMeta = await ghGet('data/index.enc');
-      await ghPut('data/index.enc', blobs.index, iMeta.sha, '更新 index.enc');
+      var iMeta = await ghGet('index.enc');
+      await ghPut('index.enc', blobs.index, iMeta.sha, '更新 index.enc');
       step.push('index.enc ✔');
 
-      var fMeta = await ghGet('data/full.enc');
-      await ghPut('data/full.enc', blobs.full, fMeta.sha, '更新 full.enc');
+      var fMeta = await ghGet('full.enc');
+      await ghPut('full.enc', blobs.full, fMeta.sha, '更新 full.enc');
       step.push('full.enc ✔');
 
       // 顺带把 app.js 的版本号 +1，绕开浏览器/CDN 缓存
@@ -828,7 +828,7 @@
         + '<a class="dl" download="admin.bin" href="' + url + '">⬇ 下载 admin.bin（'
         + blob.length + ' 字节）</a>'
         + '<b>接下来：</b><ol>'
-        + '<li>把 <code>admin.bin</code> 上传到仓库 <code>data/</code> 目录，点最底部 <b>Commit changes</b></li>'
+        + '<li>把 <code>admin.bin</code> 上传到仓库<b>根目录</b>，点最底部 <b>Commit changes</b></li>'
         + '<li>等 1–2 分钟部署</li>'
         + '<li>回到本页，用刚才设的<b>管理员口令</b>登录</li></ol>'
         + (cfg.token ? '' : '<div class="msg m-warn" style="margin-top:10px">你没填令牌，'

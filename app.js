@@ -271,10 +271,10 @@ async function fetchBytes(url) {
 
 /** 拉取密文：index 先到（含 salt），full 后台并行下载不阻塞解锁界面 */
 async function fetchCipher() {
-  const pFull = fetchBytes('full.enc')
+  const pFull = fetchBytes('full.bin')
     .then((b) => { LOCK.encFull = b; })
     .catch(() => { LOCK.encFull = null; });
-  LOCK.encIndex = await fetchBytes('index.enc');
+  LOCK.encIndex = await fetchBytes('index.bin');
   return pFull;
 }
 
@@ -330,7 +330,7 @@ async function afterUnlock() {
         full = await decryptJSON(LOCK.encFull, LOCK.key);
       } else {
         // 首次进入时全文可能还在下载，补拉一次
-        LOCK.encFull = await fetchBytes('full.enc');
+        LOCK.encFull = await fetchBytes('full.bin');
         full = await decryptJSON(LOCK.encFull, LOCK.key);
       }
       buildDocs(full);
