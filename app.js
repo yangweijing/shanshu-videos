@@ -254,7 +254,7 @@ const LOCK = {
 
 /* 内容版本号：每次更换根目录的 .enc 后，把下面这行的值改一下（比如 v2、v3），
    所有访客就会立刻拉到新文件，不会被浏览器缓存 / CDN 缓存 / Service Worker 挡住。 */
-const DATA_VER = 'v6';
+const DATA_VER = 'v7';
 
 /* 密文用 Base64 纯文本保存（index.txt / full.txt）。
    原因：GitHub Pages 等平台会把二进制文件当文本做字符集转换，
